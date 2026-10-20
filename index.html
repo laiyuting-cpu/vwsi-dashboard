@@ -359,6 +359,9 @@ input[type=range]{width:100%;accent-color:var(--green)}
 /* dm stats */
 .tb td.who{display:table-cell}
 .tb td.num,.tb th.num{min-width:64px;text-align:right}
+.td.calev{border-left:3px solid var(--c-meet);background:var(--surface-2);cursor:default}
+.td.coev{border-left:3px solid var(--yellow);background:var(--surface-2);cursor:default}
+.td.calev .sub2,.td.coev .sub2{font-family:var(--f-mono)}
 .titem.cal{border-left:3px solid var(--c-meet);background:var(--surface-2);cursor:default}
 .calrow{display:flex;gap:8px;font-size:13px;padding:3px 0}.calrow .tm{font-family:var(--f-mono);color:var(--ink-3);width:92px;flex:none}
 .calst{font-size:11px;padding:0 6px;border-radius:4px;white-space:nowrap}.calst.ok{background:var(--green-soft);color:var(--green)}.calst.warn{background:var(--amber-soft);color:var(--amber)}.calst.no{background:var(--surface-2);color:var(--ink-3)}
@@ -824,7 +827,7 @@ function viewDaily(){
   let h='<div class="page-head"><div><div class="eyebrow">每人每天最重要的三件事</div><h1>Daily Mission</h1></div><div class="toolbar"><button class="btn" data-act="dayPrev" aria-label="前一天">‹</button><b>'+(isToday?'今天 ':'')+fmtD(d)+'</b><button class="btn" data-act="dayNext" aria-label="後一天">›</button>'+(isToday?'':'<button class="btn ghost" data-act="dayToday">回到今天</button>')+'</div></div>';
   h+='<div class="strip"><span>已填寫 <b>'+filled+'</b>/'+ms.length+' 人</span><span>已下班回報 <b>'+reported+'</b> 人</span>'+(cuts?'<span style="border-color:var(--amber);color:var(--amber)">待處理插隊 <b>'+cuts+'</b></span>':'')+'</div>';
   h+='<div class="dm-top"><div>'+(m&&S.canWrite?myPanel(m,d):'<div class="panel">'+empty(m?'你目前只能檢視。':'先在上方選擇你是哪一位，就能填寫自己的三件事。')+'</div>')+'</div><aside style="display:flex;flex-direction:column;gap:14px">';
-  if(S.sb){loadCompany();h+='<section class="panel"><div class="panel-h"><h2>公司行事曆</h2><span class="count">'+(isToday?'今天':fmtD(d))+'</span></div><div class="panel-b">'+companyList(1,d)+'</div></section>';if(m)h+='<section class="panel"><div class="panel-h"><h2>我的行事曆</h2></div><div class="panel-b">'+calBlock(d)+'</div></section>'}
+  if(S.sb){loadCompany();h+='<section class="panel"><div class="panel-h"><h2>公司行事曆</h2><span class="count">'+(isToday?'今天':fmtD(d))+'</span></div><div class="panel-b">'+companyList(1,d)+'</div></section>';if(m)h+='<section class="panel"><div class="panel-h"><h2>我的行事曆</h2>'+calStatusChip(m.id)+'</div>'+myCalBody(m,d)+'</section>'}
   h+='<section class="panel"><div class="panel-b pad sub" style="font-size:13px">✍️ 用<b>成果</b>來寫，例如「完成冬令營招生文案初稿」<br>⏱ 每件選 1 或 2 小時<br>✅ 做完就在左邊的方框打勾<br>🌙 下班前按「下班回報」<br>🔁 想請夥伴先做別的事，在他的卡片留言並勾「插隊」</div></section>';
   h+='</aside></div>';
   const others=ms.filter(x=>!m||x.id!==m.id);
@@ -852,7 +855,7 @@ function myPanel(m,d){
   let h='<section class="mine"><div class="mine-h">'+avatar(m)+'<h2>我'+(d===S.date0?'今天':'這天')+'的三件事</h2><span class="st" id="dm-saved">'+(doc?.updatedAt?'<span class="slack-ok">✓ 已儲存 '+esc(new Date(doc.updatedAt).toTimeString().slice(0,5))+'</span>':'<span class="hint">還沒填寫</span>')+'</span></div>';
   if(openCuts.length)h+='<div class="mine-sec" style="background:var(--amber-soft)"><h3>🔁 有 '+openCuts.length+' 個插隊請求</h3>'+openCuts.map(c=>cmtHtml(c,true)).join('')+'</div>';
   h+=items.map((it,i)=>'<div class="slot2'+(it.done?' is-done':'')+'"><label class="dm-ck" title="完成了就打勾"><input type="checkbox" id="dmd-'+i+'" data-act="dmDone" data-i="'+i+'" '+(it.done?'checked':'')+' aria-label="第 '+(i+1)+' 件完成">✓</label><span class="dm-no'+(i===0?' first':'')+'">'+(i+1)+'</span><input type="text" id="dmt-'+i+'" data-dm="'+i+'" value="'+esc(it.t)+'" placeholder="'+['今天最重要的成果，例如：完成招生文案初稿','第二個成果','第三個成果'][i]+'" maxlength="120" autocomplete="off"><span class="seg2" role="radiogroup" aria-label="預估時間"><label><input type="radio" name="dmh-'+i+'" value="1" data-dmh="'+i+'" '+(Number(it.h)!==2?'checked':'')+'>1 小時</label><label><input type="radio" name="dmh-'+i+'" value="2" data-dmh="'+i+'" '+(Number(it.h)===2?'checked':'')+'>2 小時</label></span>'+dmLinkHtml(it)+'</div>').join('');
-  h+='<div class="mine-foot"><div class="meter"><div class="hint">預估 <b class="mono" id="dm-hrs">'+hrs+'</b> / 8 小時・完成 <b class="mono">'+done+'</b>/'+cnt+'</div><div class="bar" style="margin-top:4px"><span id="dm-bar" style="width:'+Math.min(100,hrs/8*100)+'%;background:var(--blue)"></span></div></div>'+(myOpen.length||myTd.length?'<select id="dmPick" data-act="dmPick" style="width:auto;max-width:220px" aria-label="從我的任務帶入"><option value="">＋ 從我的任務帶入</option>'+(myTd.length?'<optgroup label="我的待辦">'+myTd.map(x=>'<option value="td:'+esc(x.id)+'">'+esc((recOf(x)?'🔁 ':'')+x.title)+'</option>').join('')+'</optgroup>':'')+'<optgroup label="專案任務">'+myOpen.slice(0,60).map(t=>'<option value="'+esc(t.id)+'">'+esc((t.due?fmtD(t.due)+'｜':'')+t.title)+'</option>').join('')+'</optgroup></select>':'')+'<button class="btn primary" data-act="dmSave">儲存</button></div>'+routineSec(m,d,items)+myCalSec(m,d);
+  h+='<div class="mine-foot"><div class="meter"><div class="hint">預估 <b class="mono" id="dm-hrs">'+hrs+'</b> / 8 小時・完成 <b class="mono">'+done+'</b>/'+cnt+'</div><div class="bar" style="margin-top:4px"><span id="dm-bar" style="width:'+Math.min(100,hrs/8*100)+'%;background:var(--blue)"></span></div></div>'+(myOpen.length||myTd.length?'<select id="dmPick" data-act="dmPick" style="width:auto;max-width:220px" aria-label="從我的任務帶入"><option value="">＋ 從我的任務帶入</option>'+(myTd.length?'<optgroup label="我的待辦">'+myTd.map(x=>'<option value="td:'+esc(x.id)+'">'+esc((recOf(x)?'🔁 ':'')+x.title)+'</option>').join('')+'</optgroup>':'')+'<optgroup label="專案任務">'+myOpen.slice(0,60).map(t=>'<option value="'+esc(t.id)+'">'+esc((t.due?fmtD(t.due)+'｜':'')+t.title)+'</option>').join('')+'</optgroup></select>':'')+'<button class="btn primary" data-act="dmSave">儲存</button></div>'+routineSec(m,d,items);
   if(d===S.date0&&cnt)h+='<div class="mine-sec"><h3>🌙 下班回報'+(doc?.report?' <span class="badge-ok">已回報 '+esc((doc.report.at||'').slice(11,16))+'</span>':'')+'</h3><textarea id="dmr-note" rows="2" placeholder="沒完成的原因，或明天要接續的事（選填）" style="min-height:40px">'+esc(doc?.report?.note||'')+'</textarea><div style="display:flex;justify-content:flex-end"><button class="btn '+(doc?.report?'':'primary')+'" data-act="dmReport">'+(doc?.report?'更新回報':'送出下班回報')+'</button></div></div>';
   const others=cmts.filter(c=>!(c.kind==='cut'&&!c.resolved));
   if(others.length)h+='<div class="mine-sec"><h3>留言</h3>'+others.map(c=>cmtHtml(c,true)).join('')+'</div>';
@@ -896,6 +899,13 @@ function calBlock(d){
 }
 function mcpMsg(e,server){const c=e&&e.code;if(c==='server_not_connected')return {error:'還沒連接 '+server+'：到 claude.ai 設定 → 連接器 加入後重新整理。'};if(c==='needs_reauth')return {error:server+' 需要重新連線：到 claude.ai 設定 → 連接器 重新登入。'};if(c==='not_in_manifest'||c==='approval_required'||c==='consent_required')return {error:'需要你允許工作台讀取 '+server+'。',retry:true};if(c==='selection_required')return {error:'你有多個 '+server+' 連接，請在 claude.ai 跳出的視窗選一個。'};if(c==='blocked_by_policy')return {error:'組織設定不允許在這裡使用 '+server+'。'};return {error:server+' 暫時讀不到，稍後再試。',retry:!!(e&&e.retryable)}}
 function evWhen(e){const sd=e.start?.dateTime?e.start.dateTime.slice(0,10):(e.start?.date||'').slice(0,10);const tm=e.start?.dateTime?e.start.dateTime.slice(11,16)+'–'+(e.end?.dateTime||'').slice(11,16):'整天';return [sd,tm]}
+async function loadCompanyRange(from,to,force){if(!S.sb)return;const key=from+to;const c=S.compR;if(!force&&c&&c.key===key&&(c.loading||Date.now()-c.at<300000))return;
+  S.compR={key,loading:true,at:Date.now(),events:(c&&c.key===key&&c.events)||[]};
+  try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{from,to}});let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}S.compR={key,at:Date.now(),events:r&&r.ok?r.events:[],error:r&&r.ok?'':'error'}}
+  catch(e){S.compR={key,at:Date.now(),events:[],error:'error'}}
+  render();
+}
+function companyOn(d){const L=(S.compR&&S.compR.events)||[];return L.filter(e=>{const r=evRange(e);if(r.allDay)return r.sd<=d&&d<r.ed;return r.s.slice(0,10)<=d&&d<=r.e.slice(0,10)})}
 function companyList(days,onlyDay){
   const c=S.company;
   if(!c||c.loading)return empty('讀取公司行事曆中…');
@@ -1044,12 +1054,15 @@ function viewMine(){
     return h+g.map(([nm,l])=>panel('專案任務・'+nm,l.length+' 項',l.length?l.sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')).map(t=>taskRow(t,{noOwner:t.owner===who.id})).join(''):empty('沒有。'))).join('')+'</div>'}
   // week calendar (Sunday start)
   const base=S.mineWeek||S.date0;const d0=parseD(base);const sun=addDays(base,-d0.getDay());const days=[...Array(7)].map((_,i)=>addDays(sun,i));
-  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">拖曳待辦可以換日期；藍色邊框是專案任務</span></div>';
+  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span></div>';
+  loadMemberCals(addDays(sun,1));loadCompanyRange(sun,addDays(sun,6));
   const projT=liveTasks().filter(t=>mine(t,who.id)&&t.due&&(isOpen(t)||t.due>=sun));
   const col=(day,label)=>{const isNo=day==='';const list=todosOn(who.id,day).map(x=>({...x,done:tdDoneOn(x,day)})).sort((a,b)=>(a.done-b.done)||(!!recOf(b)-!!recOf(a))||(a.createdAt||'').localeCompare(b.createdAt||''));const pt=isNo?[]:projT.filter(t=>t.due===day);
     const span=isNo||isWeekend(day)?[]:projT.filter(t=>isOpen(t)&&t.start&&t.start<=day&&day<t.due);
     const ghost=isNo||day<=S.date0?[]:projT.filter(t=>isOpen(t)&&recOf(t)&&t.due<day&&occursOn(recOf(t),t.recBase||t.due,day));
     let c='<div class="col'+(day===S.date0?' today':'')+(isNo?' nodate':'')+'" data-day="'+day+'"><div class="dh">'+(isNo?'<span class="w">'+label+'</span><span style="font-weight:700">'+list.filter(x=>!x.done).length+' 項</span>':'<span class="w">'+label+'</span><span class="n">'+Number(day.slice(8))+'</span>')+'</div><div class="items">';
+    if(!isNo){c+=companyOn(day).map(e=>{const l=evLabel(e,day);return '<div class="td coev" title="公司行事曆"><div style="min-width:0;flex:1"><div class="tt">🏢 '+esc(e.summary||'（無標題）')+'</div><div class="sub2">'+esc(l.tm)+(e.location?'・'+esc(e.location):'')+'</div></div></div>'}).join('');
+      c+=memberEvents(who.id,day).map(e=>{const l=evLabel(e,day);return '<div class="td calev" title="'+(self?'我的':esc(who.name)+'的')+'行事曆"><div style="min-width:0;flex:1"><div class="tt">📅 '+esc(l.title)+'</div><div class="sub2">'+esc(l.tm)+(l.loc?'・'+esc(l.loc):'')+'</div></div></div>'}).join('')}
     c+=span.map(t=>'<div class="td span" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">進行中・到 '+fmtD(t.due).split(' ')[0]+'</div></div></div>').join('');
     c+=ghost.map(t=>'<div class="td ghost" data-act="openTask" data-id="'+esc(t.id)+'" title="完成這一次後會自動建立"><div style="min-width:0;flex:1"><div class="tt">🔁 '+esc(t.title)+'</div><div class="sub2">預定・'+esc(recLabel(recOf(t),t.recBase||t.due))+'</div></div></div>').join('');
     c+=pt.map(t=>'<div class="td proj'+(t.status!=='done'&&t.due<S.date0?' over':'')+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">'+esc(S.projects[t.projectId]?.name||'')+'・到期</div></div></div>').join('');
@@ -1077,11 +1090,17 @@ function meetHours(mid,d){let h=0;for(const e of memberEvents(mid,d)){const r=ev
 function evLabel(e,d){const r=evRange(e);const tm=r.allDay?'整天':(r.s.slice(0,10)<d?'00:00':r.s.slice(11,16))+'–'+(r.e.slice(0,10)>d?'24:00':r.e.slice(11,16));return {tm,title:e.busy?'忙碌':(e.summary||'（無標題）'),loc:e.location||''}}
 function calStatus(mid){const c=S.mcal&&S.mcal.data&&S.mcal.data[mid];return c?c.status:(S.mcal&&S.mcal.loading?'loading':'')}
 function calStatusChip(mid){const st=calStatus(mid);return st==='full'?'<span class="calst ok">📅 完整行程</span>':st==='busy'?'<span class="calst ok">📅 只顯示忙碌</span>':st==='not_shared'?'<span class="calst warn">📅 還沒分享</span>':st==='none'?'<span class="calst no">📅 未設定</span>':''}
-async function loadMemberCals(d,force){if(!S.sb)return;const w=weekDays(d||S.date0);const key=w[0];if(!force&&S.mcal&&S.mcal.key===key&&(S.mcal.loading||Date.now()-S.mcal.at<180000))return;
+async function loadMemberCals(d,force){if(!S.sb)return;const w=weekDays(d||S.date0);const key=w[0];const from=addDays(w[0],-1);if(!force&&S.mcal&&S.mcal.key===key&&(S.mcal.loading||Date.now()-S.mcal.at<180000))return;
   S.mcal={...(S.mcal||{}),key,loading:true,at:Date.now()};
-  try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{mode:'members',from:w[0],to:w[6]}});let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}S.mcal={key,at:Date.now(),data:r&&r.ok?r.members:{},error:r&&r.ok?'':(r&&r.error)||'error'}}
+  try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{mode:'members',from,to:w[6]}});let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}S.mcal={key,at:Date.now(),data:r&&r.ok?r.members:{},error:r&&r.ok?'':(r&&r.error)||'error'}}
   catch(e){console.warn(e);S.mcal={key,at:Date.now(),data:{},error:'error'}}
   render();if(S.view==='settings')drawOverlay(true);
+}
+function myCalBody(m,d){loadMemberCals(d);const st=calStatus(m.id);
+  if(st==='loading'||!st)return '<div class="empty">讀取中…</div>';
+  if(st==='none'||st==='not_shared')return '<div class="empty">'+(st==='none'?'還沒連接你的行事曆。':'讀不到你的行事曆，可能還沒分享給 vwsi-bot。')+'<br><a href="#settings" style="color:var(--blue)">到「設定 → 我的行事曆」看 2 分鐘教學</a></div>';
+  const ev=memberEvents(m.id,d);if(!ev.length)return '<div class="empty">'+(d===S.date0?'今天':'這天')+'沒有行程。</div>';
+  return '<div class="panel-b pad" style="display:flex;flex-direction:column;gap:2px">'+ev.map(e=>{const l=evLabel(e,d);return '<div class="calrow"><span class="tm">'+esc(l.tm)+'</span><span>'+esc(l.title)+(l.loc?' <span class="hint">'+esc(l.loc)+'</span>':'')+'</span></div>'}).join('')+'<div class="hint" style="margin-top:4px">共 '+meetHours(m.id,d)+' 小時，會算進「團隊 → 每週工時」</div></div>';
 }
 function myCalSec(m,d){loadMemberCals(d);const st=calStatus(m.id);
   let h='<div class="mine-sec"><h3>📅 '+(d===S.date0?'今天':'這天')+'的行程 '+calStatusChip(m.id)+'</h3>';
@@ -1245,7 +1264,7 @@ function viewSettings(){
   const tpls=Object.values(S.templates).sort((a,b)=>(a.source||'').localeCompare(b.source||'','zh-Hant',{numeric:true}));
   h+=panel('WBS 專案範本',tpls.length+' 份',tpls.length?tpls.map(t=>'<div class="row"><span class="dept-dot" style="background:'+esc(deptOf(t.dept).color)+'"></span><div class="main"><div class="t">'+esc(t.name)+'</div><div class="meta"><span>'+t.tasks.length+' 項</span><span>'+(t.timed?'依「'+esc(t.anchorLabel)+'」回推期限':'流程型，期限自行填')+'</span><span>來源：'+esc(t.source||'')+'</span></div></div></div>').join(''):empty('範本載入中…'));
   const chOf=o=>o.slackChannelName?'#'+esc(o.slackChannelName):'未設定';
-  h+=panel('Slack 通知','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0"><b>發到專案頻道</b>：任務插隊、等待主管決策、Pending 到追蹤日（沒有指定專案頻道 → 部門預設頻道 → #general）。<br><b>私訊</b>：Daily Mission 插隊、被指派新任務、每個工作日 09:07 的「今天到期與逾期」清單。<br>部門前綴對應 Slack 頻道名稱開頭的字母（例如 <code>b-社群經營</code> → 品牌行銷部），用來分類頻道清單與「從 Slack 頻道建立專案」。私人頻道要先輸入 /invite @職掘工作台。</p></div><div class="tbl-wrap"><table><thead><tr><th>部門</th><th>前綴</th><th>預設頻道名稱</th><th>預設頻道 ID</th></tr></thead><tbody>'+ds.map(d=>'<tr><td>'+esc(d.name)+'</td><td><input type="text" aria-label="頻道前綴" data-sfield="depts" data-k="slackPrefix" data-id="'+esc(d.id)+'" value="'+esc(d.slackPrefix||'')+'" '+dis+' class="mono" style="width:56px" maxlength="2" placeholder="b"></td><td><input type="text" aria-label="頻道名稱" data-sfield="depts" data-k="slackChannelName" data-id="'+esc(d.id)+'" value="'+esc(d.slackChannelName||'')+'" '+dis+'></td><td><input type="text" aria-label="頻道 ID" data-sfield="depts" data-k="slackChannel" data-id="'+esc(d.id)+'" value="'+esc(d.slackChannel||'')+'" '+dis+' class="mono"></td></tr>').join('')+'</tbody></table></div><div class="tbl-wrap"><table><thead><tr><th>成員</th><th>Slack 使用者 ID</th></tr></thead><tbody>'+ms.filter(m=>m.active!==false).map(m=>'<tr><td>'+chip(m.id)+'</td><td><input type="text" aria-label="Slack ID" data-sfield="members" data-k="slackId" data-id="'+esc(m.id)+'" value="'+esc(m.slackId||'')+'" '+((adm||(my&&my.id===m.id))&&S.canWrite?'':'disabled')+' placeholder="例如 U01ABCDE" class="mono"></td></tr>').join('')+'</tbody></table></div>',{wide:true});
+  h+=panel('Slack 通知','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0"><b>發到專案頻道</b>：任務插隊、等待主管決策、Pending 到追蹤日（沒有指定專案頻道 → 部門預設頻道 → #general）。<br><b>私訊</b>：Daily Mission 插隊、被指派新任務、每個工作日 09:07 的「今天到期與逾期」清單。<br>部門前綴對應 Slack 頻道名稱開頭的字母（例如 <code>b-社群經營</code> → 品牌行銷部），用來分類頻道清單與「從 Slack 頻道建立專案」。私人頻道要先輸入 /invite @職掘工作台。</p></div><div class="tbl-wrap"><table><thead><tr><th>部門</th><th>前綴</th><th colspan="2">預設頻道（專案沒指定頻道時用）</th></tr></thead><tbody>'+ds.map(d=>'<tr><td>'+esc(d.name)+'</td><td><input type="text" aria-label="頻道前綴" data-sfield="depts" data-k="slackPrefix" data-id="'+esc(d.id)+'" value="'+esc(d.slackPrefix||'')+'" '+dis+' class="mono" style="width:56px" maxlength="2" placeholder="b"></td><td colspan="2">'+deptChSelect(d,dis)+'</td></tr>').join('')+'</tbody></table></div><div class="tbl-wrap"><table><thead><tr><th>成員</th><th>Slack 使用者 ID</th></tr></thead><tbody>'+ms.filter(m=>m.active!==false).map(m=>'<tr><td>'+chip(m.id)+'</td><td><input type="text" aria-label="Slack ID" data-sfield="members" data-k="slackId" data-id="'+esc(m.id)+'" value="'+esc(m.slackId||'')+'" '+((adm||(my&&my.id===m.id))&&S.canWrite?'':'disabled')+' placeholder="例如 U01ABCDE" class="mono"></td></tr>').join('')+'</tbody></table></div>',{wide:true});
   h+=panel('連接的工具','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:8px"><p style="margin:0"><b>公司行事曆</b>：總覽和 Daily Mission 會顯示 '+esc(COMPANY_CAL)+' 的行程（由服務帳號 vwsi-bot 讀取）。</p><p style="margin:0"><b>Google 雲端硬碟</b>：在任務裡搜尋並附上 Drive 檔案。</p><p style="margin:0"><b>Slack</b>：插隊與決策通知由「職掘工作台」機器人發送，見上方設定。</p></div>');
   return h+'</div>';
 }
@@ -1433,8 +1452,14 @@ function slackDM(mid,text){const m=S.members[mid];if(!m||!m.slackId)return Promi
 async function loadSlackChannels(force){if(!S.sb)return;if(!force&&S.slackCh&&(S.slackCh.loading||Date.now()-S.slackCh.at<600000))return;S.slackCh={loading:true,at:Date.now(),list:(S.slackCh&&S.slackCh.list)||[]};
   try{const {data,error}=await S.sb.functions.invoke('slack-channels',{body:{force:!!force}});let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}S.slackCh={at:Date.now(),list:r&&r.ok?r.channels:[],error:r&&r.ok?'':(r&&r.error)||'error'}}
   catch(e){S.slackCh={at:Date.now(),list:[],error:'error'}}
+  if(S.view==='settings')render();
   if(S.modal==='slackImport')drawOverlay();else{const el=document.getElementById('p-slack');if(el&&el.parentElement)el.parentElement.innerHTML=channelSelect(el.value,'slackChannel')}
 }
+function deptChSelect(d,dis){loadSlackChannels();const L=(S.slackCh&&S.slackCh.list)||[];const cur=d.slackChannel||'';
+  if(!L.length)return '<input type="text" aria-label="頻道 ID" data-sfield="depts" data-k="slackChannel" data-id="'+esc(d.id)+'" value="'+esc(cur)+'" '+dis+' class="mono" placeholder="頻道 ID">'+(cur?' <span class="hint">'+esc(d.slackChannelName||'')+'</span>':'');
+  const px=(d.slackPrefix||'').toLowerCase();const mine=L.filter(c=>px&&chPrefix(c.name)===px),rest=L.filter(c=>!(px&&chPrefix(c.name)===px));
+  const opt=c=>'<option value="'+esc(c.id)+'" '+(c.id===cur?'selected':'')+'>#'+esc(c.name)+(c.private?' 🔒':'')+'</option>';
+  return '<select aria-label="部門預設頻道" data-deptch="'+esc(d.id)+'" '+dis+'><option value="">（不指定，用 #general）</option>'+(mine.length?'<optgroup label="'+esc(d.name)+'">'+mine.map(opt).join('')+'</optgroup>':'')+'<optgroup label="其他頻道">'+rest.map(opt).join('')+'</optgroup>'+(cur&&!L.some(c=>c.id===cur)?'<option value="'+esc(cur)+'" selected>'+esc(cur)+'（機器人看不到）</option>':'')+'</select>'}
 function chPrefix(name){const m=/^([a-z])[0-9]*[-_.]/i.exec(name||'');return m?m[1].toLowerCase():''}
 function deptByPrefix(px){return Object.values(S.depts).find(d=>(d.slackPrefix||'').toLowerCase()===px)}
 function chName(id){const c=(S.slackCh&&S.slackCh.list||[]).find(x=>x.id===id);return c?c.name:''}
@@ -1629,6 +1654,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.recf){setRecField(el.dataset.rkind,el.dataset.id,el.dataset.recf,el.value);return}
   if(el.dataset.act==='mineWho'){S.mineWho=el.value;render();return}
   if(el.dataset.act==='setWp'){const t=S.tasks[el.dataset.id];if(!t)return;const wp=el.value;const code=wp?wp+'.'+(projTasks(t.projectId).filter(x=>!x.phase&&wpOf(x)===wp&&x.id!==t.id).length+1):'';W(S.db.doc('tasks/'+t.id).update({code,updatedAt:nowISO()}));return}
+  if(el.dataset.deptch){const id=el.dataset.deptch,v=el.value;W(S.db.doc('depts/'+id).update({slackChannel:v,slackChannelName:chName(v)||''}),'已更新部門預設頻道');return}
   if(el.dataset.sfield){const col=el.dataset.sfield;const [k,v]=[el.dataset.k,el.value.trim()];W(S.db.doc(col+'/'+el.dataset.id).update({[k]:v}),'已更新 Slack 設定');return}
   if(el.dataset.act==='tplPick'){const t=S.templates[el.value];const h=document.getElementById('tplHint');if(h)h.textContent=!t?'選擇範本後，這裡會說明期限怎麼計算。':t.timed?'會依「'+t.anchorLabel+'」自動回推每項任務的期限，請在上方填入基準日。':'流程型範本：任務不會自動帶期限，建立後再依實際時程填寫。';return}
   if(el.dataset.field&&el.dataset.id){const v=el.type==='checkbox'?el.checked:el.value;setTaskField(el.dataset.id,el.dataset.field,typeof v==='string'&&el.type==='text'?v.trim():v);return}
