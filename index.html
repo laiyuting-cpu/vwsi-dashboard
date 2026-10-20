@@ -354,6 +354,14 @@ input[type=range]{width:100%;accent-color:var(--green)}
 .wh tfoot td{font-weight:700;border-top:1px solid var(--line)}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:4px}
 
+/* dm stats */
+.tb td.who{display:table-cell}
+.tb td.num,.tb th.num{min-width:64px;text-align:right}
+.dmc{display:inline-flex;gap:3px;flex-wrap:wrap;align-items:center}
+.dmc i{display:inline-block;height:12px;border-radius:3px;border:1.5px dashed}
+.dmc i.h1{width:12px;border-color:var(--c-todo)}.dmc i.h2{width:26px;border-color:var(--c-proj)}
+.dmc i.ok{border-style:solid}.dmc i.h1.ok{background:var(--c-todo)}.dmc i.h2.ok{background:var(--c-proj)}
+.wbars .dmc{justify-content:center;min-height:16px}
 /* recurrence & routines */
 .rec-x{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:8px;background:var(--surface-2);margin-top:6px}
 .rec-x .line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -575,6 +583,7 @@ const MANUAL = [
   ['note','想對夥伴說的話','']
 ];
 const S = {
+  wdaily:{},wdKey:'',
   db:null, user:null, assets:null, mcp:null, uid:null, canWrite:true, owner:false,
   members:{}, depts:{}, projects:{}, tasks:{}, daily:{}, comments:{}, templates:{}, goals:{}, manuals:{}, todos:{},
   loaded:{members:false,depts:false,projects:false,tasks:false},
@@ -1058,7 +1067,7 @@ function teamMobTodos(ms,days,wd){
   for(const m of ms){
     const td=todosOn(m.id,sel).map(x=>({...x,done:tdDoneOn(x,sel)})).sort((a,b)=>(a.done-b.done)||(a.createdAt||'').localeCompare(b.createdAt||''));
     const pt=liveTasks().filter(t=>t.owner===m.id&&t.due===sel);
-    const dm=(S.daily[sel+'_'+m.id]?.items||[]).filter(x=>x.t);
+    const dm=(dailyOf(sel+'_'+m.id)?.items||[]).filter(x=>x.t);
     const hr=dayHours(m.id,sel);
     h+='<div class="mc"><div class="mc-h">'+avatar(m)+'<span class="nm">'+esc(m.name)+'</span>'+(hr.total?'<span class="hsum'+(hr.total>HOURS_PER_DAY?' over':'')+'">'+hr.total+' 小時</span>':'')+'</div><div class="tcell">'+
       (dm.length?'<div class="hint">★ 三件事 '+dm.filter(x=>x.done).length+'/'+dm.length+'：'+esc(dm.map(x=>(x.done?'✓':'')+x.t).join('、'))+'</div>':'')+
@@ -1080,11 +1089,32 @@ function teamMobHours(rows,days,wd,bar){
   }
   return h+'</div><div class="legend" style="padding-inline:0"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務</span><span><span class="sw" style="background:var(--c-todo)"></span>個人待辦</span><span>虛線＝8 小時；紅字＝超過</span><span>團隊本週合計 <b class="mono">'+Math.round(grand*10)/10+'</b> 小時</span></div></div>';
 }
+function dmWeek(mid,days){const per=days.map(d=>(dailyOf(d+'_'+mid)?.items||[]).filter(x=>x.t).map(x=>({h:Number(x.h)===2?2:1,done:!!x.done,t:x.t})));
+  const all=per.flat();const c1=all.filter(x=>x.h===1),c2=all.filter(x=>x.h===2);
+  return {per,n1:c1.length,d1:c1.filter(x=>x.done).length,n2:c2.length,d2:c2.filter(x=>x.done).length,plan:c1.length+2*c2.length,doneH:c1.filter(x=>x.done).length+2*c2.filter(x=>x.done).length,filled:per.filter(x=>x.length).length,reported:days.filter(d=>dailyOf(d+'_'+mid)?.report).length}}
+function dmChips(list){if(!list.length)return '<span class="hint">—</span>';return '<span class="dmc">'+list.map(x=>'<i class="'+(x.h===2?'h2':'h1')+(x.done?' ok':'')+'" title="'+esc((x.done?'✓ ':'○ ')+x.t+'（'+x.h+' 小時）')+'"></i>').join('')+'</span>'}
+function dmBar(r,W){const MAX=30,sc=v=>Math.min(v,MAX)/MAX*W;const seg=[[r.d2*2,'var(--c-proj)',1],[(r.n2-r.d2)*2,'var(--c-proj)',0],[r.d1,'var(--c-todo)',1],[r.n1-r.d1,'var(--c-todo)',0]];let x=0,g='';
+  for(const [v,c,solid] of seg){if(!v)continue;const w=Math.max(1,sc(v)-2);g+=solid?'<rect x="'+x+'" y="3" width="'+w+'" height="12" rx="3" fill="'+c+'"/>':'<rect x="'+(x+.75)+'" y="3.75" width="'+Math.max(0,w-1.5)+'" height="10.5" rx="2.5" fill="none" stroke="'+c+'" stroke-width="1.5" stroke-dasharray="3 2"/>';x+=sc(v)}
+  return '<svg width="'+W+'" height="18" viewBox="0 0 '+W+' 18" aria-hidden="true"><rect x="0" y="3" width="'+W+'" height="12" rx="3" fill="var(--surface-2)"/>'+g+'</svg>'}
+function teamDmStats(ms,days,wd){
+  const rows=ms.map(m=>({m,...dmWeek(m.id,days)}));const T=rows.reduce((a,r)=>({n1:a.n1+r.n1,d1:a.d1+r.d1,n2:a.n2+r.n2,d2:a.d2+r.d2,plan:a.plan+r.plan,doneH:a.doneH+r.doneH,filled:a.filled+r.filled}),{n1:0,d1:0,n2:0,d2:0,plan:0,doneH:0,filled:0});
+  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  let h=S.wdLoaded?'':'<div class="hint" style="margin-bottom:8px">載入這週的三件事…</div>';
+  h+='<div class="kpis" style="margin-bottom:14px">'+[[T.n1,'1 小時的事','完成 '+T.d1+'・'+pct(T.d1,T.n1)],[T.n2,'2 小時的事','完成 '+T.d2+'・'+pct(T.d2,T.n2)],[T.doneH+' / '+T.plan,'完成時數 / 預估時數','小時'],[pct(T.d1+T.d2,T.n1+T.n2),'整體完成率',T.filled+' 人次有填寫']].map(([v,l,sub])=>'<div class="kpi"><div class="v">'+v+'</div><div class="l">'+l+'</div><div class="hint">'+sub+'</div></div>').join('')+'</div>';
+  h+='<section class="panel only-desk"><div class="tbl-wrap"><table class="tb"><thead><tr><th>夥伴</th>'+days.map((d,i)=>'<th class="'+(i>4?'wkend ':'')+(d===S.date0?'today':'')+'">週'+wd[i]+' '+Number(d.slice(5,7))+'/'+Number(d.slice(8))+'</th>').join('')+'<th class="num">1 小時</th><th class="num">2 小時</th><th style="min-width:230px">完成 / 預估時數</th><th class="num">完成率</th></tr></thead><tbody>';
+  h+=rows.map(r=>'<tr><td class="who"><span class="chip">'+avatar(r.m)+esc(r.m.name)+'</span></td>'+r.per.map((l,i)=>'<td class="'+(i>4?'wkend ':'')+(days[i]===S.date0?'today':'')+'" style="min-width:70px">'+dmChips(l)+'</td>').join('')+'<td class="num">'+r.d1+'/'+r.n1+'</td><td class="num">'+r.d2+'/'+r.n2+'</td><td>'+dmBar(r,180)+'<div class="hint"><b class="mono" style="color:var(--ink)">'+r.doneH+'</b> / '+r.plan+' 小時'+(r.filled?'・填了 '+r.filled+' 天':'・這週沒填')+'</div></td><td class="num"><b>'+pct(r.d1+r.d2,r.n1+r.n2)+'</b></td></tr>').join('');
+  h+='</tbody></table></div>'+dmLegend()+'</section>';
+  h+='<div class="only-mob"><div class="mcards">'+rows.map(r=>'<div class="mc"><div class="mc-h">'+avatar(r.m)+'<span class="nm">'+esc(r.m.name)+'</span><b class="mono">'+pct(r.d1+r.d2,r.n1+r.n2)+'</b></div>'+dmBar(r,300).replace('width="300"','width="100%" preserveAspectRatio="none"')+'<div class="hint" style="margin:4px 0 8px">1 小時 '+r.d1+'/'+r.n1+'・2 小時 '+r.d2+'/'+r.n2+'・完成 '+r.doneH+' / '+r.plan+' 小時</div><div class="wbars">'+r.per.map((l,i)=>'<div>'+dmChips(l)+'<div class="d'+(days[i]===S.date0?' today':'')+'">'+wd[i]+'</div></div>').join('')+'</div></div>').join('')+'</div>'+dmLegend()+'</div>';
+  return h;
+}
+function dmLegend(){return '<div class="legend"><span><span class="sw" style="background:var(--c-todo)"></span>1 小時的事</span><span><span class="sw" style="background:var(--c-proj);width:20px"></span>2 小時的事</span><span>實心＝已完成，虛線框＝沒完成</span><span>滑鼠移到小方塊上可以看內容</span><span>時數條以每週 30 小時（每天 3 件 × 2 小時）為滿格</span></div>'}
 function viewTeam(){
   const ms=teamMembers();const tab=S.ttab||'todos';const base=S.teamWeek||S.date0;const days=weekDays(base);const wd=['一','二','三','四','五','六','日'];
   let h='<div class="page-head"><div><div class="eyebrow">'+(isAdmin()?'全體夥伴':ms.length>1?'你負責的部門':'只有你自己')+'</div><h1>團隊</h1></div><div class="toolbar"><button class="btn" data-act="twPrev" aria-label="上一週">‹</button><button class="btn" data-act="twToday">本週</button><button class="btn" data-act="twNext" aria-label="下一週">›</button><b>'+fmtD(days[0]).split(' ')[0]+' – '+fmtD(days[6]).split(' ')[0]+'</b></div></div>';
-  h+='<div class="tabs2">'+[['todos','每日待辦'],['hours','每週工時']].map(([k,l])=>'<button data-act="ttab" data-v="'+k+'" aria-pressed="'+(tab===k)+'">'+l+'</button>').join('')+'</div>';
+  subWeek(days);
+  h+='<div class="tabs2">'+[['todos','每日待辦'],['hours','每週工時'],['dm','三件事統計']].map(([k,l])=>'<button data-act="ttab" data-v="'+k+'" aria-pressed="'+(tab===k)+'">'+l+'</button>').join('')+'</div>';
   if(!ms.length)return h+'<div class="panel">'+empty('先在上方選擇你是哪一位。')+'</div>';
+  if(tab==='dm')return h+teamDmStats(ms,days,wd);
   if(tab==='todos'){
     h+=teamMobTodos(ms,days,wd);
     h+='<section class="panel only-desk"><div class="tbl-wrap"><table class="tb"><thead><tr><th>夥伴</th>'+days.map((d,i)=>'<th class="'+(i>4?'wkend ':'')+(d===S.date0?'today':'')+'">週'+wd[i]+' '+Number(d.slice(5,7))+'/'+Number(d.slice(8))+'</th>').join('')+'</tr></thead><tbody>';
@@ -1092,7 +1122,7 @@ function viewTeam(){
       h+='<tr><td class="who"><span class="chip">'+avatar(m)+esc(m.name)+'</span></td>'+days.map((d,i)=>{
         const td=todosOn(m.id,d).map(x=>({...x,done:tdDoneOn(x,d)})).sort((a,b)=>(a.done-b.done)||(a.createdAt||'').localeCompare(b.createdAt||''));
         const pt=liveTasks().filter(t=>t.owner===m.id&&t.due===d);
-        const dm=(S.daily[d+'_'+m.id]?.items||[]).filter(x=>x.t);
+        const dm=(dailyOf(d+'_'+m.id)?.items||[]).filter(x=>x.t);
         const hr=dayHours(m.id,d);
         const inner=pt.map(t=>'<div class="titem proj'+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'" title="專案任務到期"><span>'+esc(t.title)+'</span></div>').join('')+td.map(x=>'<div class="titem'+(x.done?' done':'')+'" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+(typeof sel!=='undefined'?sel:d)+'"><span>'+(x.done?'✓ ':'')+(recOf(x)?'🔁 ':'')+esc(x.title)+'</span>'+(x.hours?'<span class="h">'+x.hours+'h</span>':'')+'</div>').join('');
         return '<td class="'+(i>4?'wkend ':'')+(d===S.date0?'today':'')+'"><div class="tcell">'+(inner||'<span class="hint">—</span>')+(dm.length?'<span class="hint" title="'+esc(dm.map(x=>x.t).join('、'))+'">★ 三件事 '+dm.filter(x=>x.done).length+'/'+dm.length+'</span>':'')+(hr.total?'<span class="hsum'+(hr.total>HOURS_PER_DAY?' over':'')+'">共 '+hr.total+' 小時</span>':'')+'</div></td>'}).join('')+'</tr>';
@@ -1587,7 +1617,10 @@ document.addEventListener('submit',async e=>{
 window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(v&&v!==S.view){if(S.view==='daily')saveDaily();S.view=v;if(v!=='depts')S.projectId=null;render();scrollTo(0,0)}});
 
 /* ---------- data ---------- */
-let dailyUnsub=null,cmtDayUnsub=null;
+let dailyUnsub=null,cmtDayUnsub=null,weekUnsub=null;
+function subWeek(days){const key=days.join(',');if(S.wdKey===key||!S.db)return;S.wdKey=key;if(weekUnsub)weekUnsub();S.wdaily={};S.wdLoaded=false;
+  weekUnsub=S.db.collection('daily').where('date','in',days).onSnapshot(s=>{const nx={};s.docs.forEach(x=>nx[x.id]=x.data());S.wdaily=nx;S.wdLoaded=true;render()},err)}
+function dailyOf(key){return S.daily[key]||S.wdaily[key]||null}
 function setDate(d){S.date=d;subDay();render()}
 function subDay(){
   if(dailyUnsub)dailyUnsub();if(cmtDayUnsub)cmtDayUnsub();
