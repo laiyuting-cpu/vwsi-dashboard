@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       let ms = (rows ?? []).filter((r) => r.data?.active !== false);
       if (!staff) ms = ms.filter((r) => r.id === who.mid);
       if (Array.isArray(q.ids) && q.ids.length) ms = ms.filter((r) => q.ids!.includes(r.id));
-      const key = 'm:' + (staff ? 'all' : who.mid) + from + to + ms.map((r) => r.id).join(',');
+      const key = 'm:' + who.mid + from + to + ms.map((r) => r.id).join(',');
       const hit = memo.get(key);
       if (hit && Date.now() - hit.at < 120_000) return json(hit.body);
 
@@ -74,6 +74,13 @@ Deno.serve(async (req) => {
           const c = fb[cal];
           if (!c || (c.errors ?? []).length) out[mid] = { status: 'not_shared', events: [] };
           else out[mid] = { status: 'busy', events: (c.busy ?? []).map((b) => ({ start: { dateTime: toLocal(b.start) }, end: { dateTime: toLocal(b.end) }, busy: true })) };
+        }
+      }
+      // 勾選「行程標題只給我自己看」的人：別人只看到忙碌時段
+      for (const r of ms) {
+        const o = out[r.id];
+        if (o && o.status === 'full' && r.data?.calPrivate && r.id !== who.mid) {
+          out[r.id] = { status: 'busy', events: o.events.map((e) => ({ start: e.start, end: e.end, busy: true })) };
         }
       }
       const body = { ok: true, members: out };

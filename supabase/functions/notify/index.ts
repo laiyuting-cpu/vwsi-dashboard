@@ -1,9 +1,7 @@
 // 工作台按下按鈕時呼叫：插隊、等待主管決策。
-// 只有名單上的夥伴能呼叫，而且只能發到部門頻道、專案頻道或 #general。
+// 只有名單上的夥伴能呼叫，而且只能發到部門頻道、專案頻道、#general，或私訊名單上的夥伴。
 import { memberClient } from '../_shared/auth.ts';
-import { postSlack, cors, json } from '../_shared/slack.ts';
-
-const GENERAL = 'C01N8DC3544';
+import { postSlack, cors, json, GENERAL } from '../_shared/slack.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -20,13 +18,19 @@ Deno.serve(async (req) => {
 
   // 呼叫者看得到的部門與專案頻道（受資料庫權限規則限制）
   const allowed = new Set<string>([GENERAL]);
-  const [{ data: depts }, { data: projects }] = await Promise.all([
+  const [{ data: depts }, { data: projects }, { data: members }] = await Promise.all([
     sb.from('depts').select('data'),
     sb.from('projects').select('data'),
+    sb.from('members').select('data'),
   ]);
   for (const r of [...(depts ?? []), ...(projects ?? [])]) {
     const c = (r as { data: { slackChannel?: string } }).data?.slackChannel;
     if (c) allowed.add(c);
+  }
+  // 私訊：只能發給名單上的夥伴
+  for (const r of members ?? []) {
+    const u = (r as { data: { slackId?: string; active?: boolean } }).data;
+    if (u?.slackId && u.active !== false) allowed.add(u.slackId);
   }
   if (!allowed.has(channel)) return json({ ok: false, error: 'channel_not_allowed' }, 403);
 
