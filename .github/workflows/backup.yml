@@ -39,7 +39,11 @@ jobs:
           RCLONE_CONFIG_GD_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.GDRIVE_SA_JSON }}
           RCLONE_CONFIG_GD_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
-          set -euo pipefail
-          rclone copy . gd: --include "vwsi-*" --drive-supports-all-drives
-          rclone delete gd: --min-age 30d --include "vwsi-*" --drive-supports-all-drives
-          rclone lsl gd: --include "vwsi-*" --drive-supports-all-drives | tail -5
+          set -uo pipefail
+          run() { "$@" > rc.log 2>&1; local c=$?; cat rc.log; if [ $c -ne 0 ]; then grep -iE "error|failed|denied|quota|not found|notFound" rc.log | tail -3 | while read -r l; do echo "::error::${l:0:400}"; done; exit $c; fi; }
+          if ! echo "$RCLONE_CONFIG_GD_SERVICE_ACCOUNT_CREDENTIALS" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("::notice::服務帳號", d.get("client_email"))'; then echo "::error::GDRIVE_SA_JSON 不是完整的 JSON，請重新貼上整份 .json 檔內容"; exit 1; fi
+          test -n "$RCLONE_CONFIG_GD_ROOT_FOLDER_ID" || { echo "::error::還沒設定 GDRIVE_FOLDER_ID"; exit 1; }
+          run rclone lsd gd: --drive-supports-all-drives
+          run rclone copy . gd: --include "vwsi-*" --drive-supports-all-drives
+          run rclone delete gd: --min-age 30d --include "vwsi-*" --drive-supports-all-drives
+          rclone lsl gd: --include "vwsi-*" --drive-supports-all-drives | tail -5 | while read -r l; do echo "::notice::${l}"; done
