@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     try { token = await googleToken('https://www.googleapis.com/auth/calendar.readonly'); } catch (e) { return json({ ok: false, sa: String((e as Error).message).slice(0, 120) }); }
     const out: unknown[] = [];
     for (const r of ms ?? []) {
-      const cal = String(r.data?.calendarId || '').trim();
+      const cal = String(r.data?.calendarId || r.data?.email || '').trim();
       if (!cal) { out.push({ who: r.data?.name, calendarId: '(空白)', email: r.data?.email || '' }); continue; }
       const u = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal)}/events`);
       u.search = new URLSearchParams({ timeMin: `${today}T00:00:00+08:00`, timeMax: `${today}T23:59:59+08:00`, singleEvents: 'true', maxResults: '50' }).toString();

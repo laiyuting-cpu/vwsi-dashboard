@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       const out: Record<string, { status: string; events: Ev[] }> = {};
       const needFb: { mid: string; cal: string }[] = [];
       await Promise.all(ms.map(async (r) => {
-        const cal = String(r.data?.calendarId || '').trim();
+        const cal = String(r.data?.calendarId || r.data?.email || '').trim();  // 沒填就用登入 Email
         if (!cal) { out[r.id] = { status: 'none', events: [] }; return; }
         const { status, j } = await listEvents(token, cal, from, to);
         if (status === 200) {
