@@ -820,7 +820,7 @@ function viewDaily(){
   let h='<div class="page-head"><div><div class="eyebrow">每人每天最重要的三件事</div><h1>Daily Mission</h1></div><div class="toolbar"><button class="btn" data-act="dayPrev" aria-label="前一天">‹</button><b>'+(isToday?'今天 ':'')+fmtD(d)+'</b><button class="btn" data-act="dayNext" aria-label="後一天">›</button>'+(isToday?'':'<button class="btn ghost" data-act="dayToday">回到今天</button>')+'</div></div>';
   h+='<div class="strip"><span>已填寫 <b>'+filled+'</b>/'+ms.length+' 人</span><span>已下班回報 <b>'+reported+'</b> 人</span>'+(cuts?'<span style="border-color:var(--amber);color:var(--amber)">待處理插隊 <b>'+cuts+'</b></span>':'')+'</div>';
   h+='<div class="dm-top"><div>'+(m&&S.canWrite?myPanel(m,d):'<div class="panel">'+empty(m?'你目前只能檢視。':'先在上方選擇你是哪一位，就能填寫自己的三件事。')+'</div>')+'</div><aside style="display:flex;flex-direction:column;gap:14px">';
-  if(S.mcp){loadCompany();h+='<section class="panel"><div class="panel-h"><h2>公司行事曆</h2><span class="count">'+(isToday?'今天':fmtD(d))+'</span></div><div class="panel-b">'+companyList(1,d)+'</div></section>';if(m)h+='<section class="panel"><div class="panel-h"><h2>我的行事曆</h2></div><div class="panel-b">'+calBlock(d)+'</div></section>'}
+  if(S.sb){loadCompany();h+='<section class="panel"><div class="panel-h"><h2>公司行事曆</h2><span class="count">'+(isToday?'今天':fmtD(d))+'</span></div><div class="panel-b">'+companyList(1,d)+'</div></section>';if(m)h+='<section class="panel"><div class="panel-h"><h2>我的行事曆</h2></div><div class="panel-b">'+calBlock(d)+'</div></section>'}
   h+='<section class="panel"><div class="panel-b pad sub" style="font-size:13px">✍️ 用<b>成果</b>來寫，例如「完成冬令營招生文案初稿」<br>⏱ 每件選 1 或 2 小時<br>✅ 做完就在左邊的方框打勾<br>🌙 下班前按「下班回報」<br>🔁 想請夥伴先做別的事，在他的卡片留言並勾「插隊」</div></section>';
   h+='</aside></div>';
   const others=ms.filter(x=>!m||x.id!==m.id);
@@ -894,7 +894,6 @@ function mcpMsg(e,server){const c=e&&e.code;if(c==='server_not_connected')return
 function evWhen(e){const sd=e.start?.dateTime?e.start.dateTime.slice(0,10):(e.start?.date||'').slice(0,10);const tm=e.start?.dateTime?e.start.dateTime.slice(11,16)+'–'+(e.end?.dateTime||'').slice(11,16):'整天';return [sd,tm]}
 function companyList(days,onlyDay){
   const c=S.company;
-  if(!S.mcp)return empty('公司行事曆串接設定中，完成後會顯示在這裡。');
   if(!c||c.loading)return empty('讀取公司行事曆中…');
   if(c.error)return '<div class="empty">'+esc(c.error)+(c.retry?'<div style="margin-top:6px"><button class="btn sm" data-act="companyRetry">允許並重新讀取</button></div>':'')+'</div>';
   let ev=c.events.filter(e=>{const [d]=evWhen(e);return onlyDay?d===onlyDay:d<=addDays(S.date0,days-1)});
@@ -902,10 +901,13 @@ function companyList(days,onlyDay){
   let last='';return ev.map(e=>{const [d,tm]=evWhen(e);const u=safeUrl(e.htmlLink);const head=!onlyDay&&d!==last?'<div class="phase" style="font-size:12px">'+(d===S.date0?'今天 ':d===addDays(S.date0,1)?'明天 ':'')+fmtD(d)+'</div>':'';last=d;return head+'<div class="row"><span class="mono hint" style="width:86px;flex:none">'+esc(tm)+'</span><div class="main"><div class="t">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:inherit">'+esc(e.summary||'（無標題）')+'</a>':esc(e.summary||'（無標題）'))+'</div>'+(e.location?'<div class="meta"><span>'+esc(e.location)+'</span></div>':'')+'</div></div>'}).join('');
 }
 async function loadCompany(force){
-  if(!S.mcp)return;const c=S.company;if(!force&&c&&(c.loading||Date.now()-(c.at||0)<300000))return;
+  if(!S.sb)return;const c=S.company;if(!force&&c&&(c.loading||Date.now()-(c.at||0)<300000))return;
   S.company={loading:true,at:Date.now()};
-  try{const r=await S.mcp.callTool('Google Calendar','list_events',{calendarId:COMPANY_CAL,startTime:S.date0+'T00:00:00',endTime:addDays(S.date0,14)+'T23:59:59',orderBy:'startTime',pageSize:60},{cache:{staleTime:120000}});const p=r.payload||{};S.company={events:Array.isArray(p.events)?p.events.filter(e=>e.status!=='cancelled'):[],at:Date.now()}}
-  catch(e){const m=mcpMsg(e,'Google 行事曆');if(e&&e.code==='tool_error')m.error='你的 Google 帳號還不能讀公司行事曆：請管理者把 '+COMPANY_CAL+' 的行事曆分享給你，再重新整理。';S.company={...m,at:Date.now()}}
+  try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{from:S.date0,to:addDays(S.date0,14)}});
+    let d=data;if(error){try{d=await error.context.json()}catch(_){d={error:'network'}}}
+    if(d&&d.ok)S.company={events:d.events||[],at:Date.now()};
+    else{const c=d&&d.error;S.company={at:Date.now(),error:c==='not_shared'?'公司行事曆還沒分享給 vwsi-bot：請到 Google 日曆把 '+COMPANY_CAL+' 分享給服務帳號（查看所有活動詳細資料）。':c==='missing_sa'||c==='bad_sa'?'Supabase 還沒設定好 GOOGLE_SA_JSON（服務帳號金鑰）。':c==='sa_auth_failed'?'服務帳號金鑰無法使用，請重新產生並更新 GOOGLE_SA_JSON。':c==='not_member'?'你的帳號不在名單裡。':'公司行事曆暫時讀不到，請稍後重新整理。'}}}
+  catch(e){console.warn(e);S.company={at:Date.now(),error:'公司行事曆暫時讀不到，請稍後重新整理。'}}
   render();
 }
 async function loadCal(d,force){
@@ -1212,7 +1214,7 @@ function viewSettings(){
   h+=panel('WBS 專案範本',tpls.length+' 份',tpls.length?tpls.map(t=>'<div class="row"><span class="dept-dot" style="background:'+esc(deptOf(t.dept).color)+'"></span><div class="main"><div class="t">'+esc(t.name)+'</div><div class="meta"><span>'+t.tasks.length+' 項</span><span>'+(t.timed?'依「'+esc(t.anchorLabel)+'」回推期限':'流程型，期限自行填')+'</span><span>來源：'+esc(t.source||'')+'</span></div></div></div>').join(''):empty('範本載入中…'));
   const chOf=o=>o.slackChannelName?'#'+esc(o.slackChannelName):'未設定';
   h+=panel('Slack 通知','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0">插隊、等待主管決策、Pending 到追蹤日時，會發到<b>專案指定的頻道</b>，沒有指定就發到<b>部門頻道</b>，並 tag 相關的人。訊息由「職掘工作台」機器人送出；私人頻道要先輸入 /invite @職掘工作台。Pending 到追蹤日的提醒會在每個工作日 09:07 自動發送。</p></div><div class="tbl-wrap"><table><thead><tr><th>部門</th><th>頻道名稱</th><th>頻道 ID</th></tr></thead><tbody>'+ds.map(d=>'<tr><td>'+esc(d.name)+'</td><td><input type="text" aria-label="頻道名稱" data-sfield="depts" data-k="slackChannelName" data-id="'+esc(d.id)+'" value="'+esc(d.slackChannelName||'')+'" '+dis+'></td><td><input type="text" aria-label="頻道 ID" data-sfield="depts" data-k="slackChannel" data-id="'+esc(d.id)+'" value="'+esc(d.slackChannel||'')+'" '+dis+' class="mono"></td></tr>').join('')+'</tbody></table></div><div class="tbl-wrap"><table><thead><tr><th>成員</th><th>Slack 使用者 ID</th></tr></thead><tbody>'+ms.filter(m=>m.active!==false).map(m=>'<tr><td>'+chip(m.id)+'</td><td><input type="text" aria-label="Slack ID" data-sfield="members" data-k="slackId" data-id="'+esc(m.id)+'" value="'+esc(m.slackId||'')+'" '+((adm||(my&&my.id===m.id))&&S.canWrite?'':'disabled')+' placeholder="例如 U01ABCDE" class="mono"></td></tr>').join('')+'</tbody></table></div>',{wide:true});
-  h+=panel('連接的工具','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:8px"><p style="margin:0"><b>Google 行事曆</b>：Daily Mission 會顯示你當天的行程；任務可以一鍵加入行事曆。</p><p style="margin:0"><b>Google 雲端硬碟</b>：在任務裡搜尋並附上 Drive 檔案。</p><p style="margin:0"><b>Slack</b>：插隊與決策通知由「職掘工作台」機器人發送，見上方設定。</p><p style="margin:0">⚙️ 網站搬到獨立網址後，行事曆、雲端硬碟與 Slack 會改由公司的服務帳號串接（設定中），暫時不會顯示。</p></div>');
+  h+=panel('連接的工具','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:8px"><p style="margin:0"><b>公司行事曆</b>：總覽和 Daily Mission 會顯示 '+esc(COMPANY_CAL)+' 的行程（由服務帳號 vwsi-bot 讀取）。</p><p style="margin:0"><b>Google 雲端硬碟</b>：在任務裡搜尋並附上 Drive 檔案。</p><p style="margin:0"><b>Slack</b>：插隊與決策通知由「職掘工作台」機器人發送，見上方設定。</p><p style="margin:0">⚙️ 網站搬到獨立網址後，行事曆、雲端硬碟與 Slack 會改由公司的服務帳號串接（設定中），暫時不會顯示。</p></div>');
   return h+'</div>';
 }
 

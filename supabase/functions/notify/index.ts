@@ -1,6 +1,6 @@
 // 工作台按下按鈕時呼叫：插隊、等待主管決策。
 // 只有名單上的夥伴能呼叫，而且只能發到部門頻道、專案頻道或 #general。
-import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { memberClient } from '../_shared/auth.ts';
 import { postSlack, cors, json } from '../_shared/slack.ts';
 
 const GENERAL = 'C01N8DC3544';
@@ -8,16 +8,9 @@ const GENERAL = 'C01N8DC3544';
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
-  const auth = req.headers.get('Authorization') ?? '';
-  if (!/^Bearer\s+\S+\.\S+\.\S+$/.test(auth)) return json({ ok: false, error: 'not_signed_in' }, 401);
-  const key = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  // 用呼叫者自己的登入憑證查資料，資料庫權限規則照樣生效
-  const sb = createClient(Deno.env.get('SUPABASE_URL')!, key, {
-    global: { headers: { Authorization: auth } },
-    auth: { persistSession: false },
-  });
-  const { data: mid, error: me } = await sb.rpc('my_member_id');
-  if (me || !mid) return json({ ok: false, error: 'not_member' }, 403);
+  const who = await memberClient(req);
+  if (!who) return json({ ok: false, error: 'not_member' }, 403);
+  const sb = who.sb;
 
   let body: { channel?: string; text?: string };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'bad_json' }, 400); }
