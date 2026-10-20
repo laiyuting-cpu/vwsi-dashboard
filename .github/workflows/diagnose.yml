@@ -1,0 +1,19 @@
+# 手動執行：檢查每位夥伴的個人行事曆是否讀得到（只顯示狀態，不含行程內容）
+name: Diagnose calendars
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          CRON_SECRET=$(printf '%s' "$SUPABASE_ACCESS_TOKEN:vwsi-cron" | sha256sum | cut -c1-48)
+          curl -sS -X POST "https://pratgdxlgwgjchkvnaum.supabase.co/functions/v1/followup" -H "x-cron-secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"diag":"calendar"}' > out.json
+          python3 -c "import json; d=json.load(open('out.json')); [print('::notice::'+json.dumps(x,ensure_ascii=False)) for x in d.get('calendars',[d])]"

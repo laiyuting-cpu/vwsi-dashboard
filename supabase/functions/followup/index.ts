@@ -4,6 +4,7 @@
 //   2. 每日到期清單：私訊每位夥伴，列出自己今天到期與已逾期的任務
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { postSlack, json, GENERAL, SITE } from '../_shared/slack.ts';
+import { googleToken } from '../_shared/google.ts';
 
 const PENDING: Record<string, string> = { wait: '等待他人完成', decide: '等待主管決策', blocked: '卡關' };
 
@@ -15,10 +16,31 @@ const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
 Deno.serve(async (req) => {
   const secret = Deno.env.get('CRON_SECRET');
   if (!secret || req.headers.get('x-cron-secret') !== secret) return json({ ok: false, error: 'forbidden' }, 403);
-  let opt: { only?: string; dry?: boolean } = {};
+  let opt: { only?: string; dry?: boolean; diag?: string } = {};
   try { opt = await req.json(); } catch { /* */ }
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
   const today = taipeiToday();
+
+  // 診斷：每位夥伴的行事曆讀不讀得到（只回傳狀態碼與數量，不含行程內容）
+  if (opt.diag === 'calendar') {
+    const { data: ms } = await sb.from('members').select('id,data');
+    let token = '';
+    try { token = await googleToken('https://www.googleapis.com/auth/calendar.readonly'); } catch (e) { return json({ ok: false, sa: String((e as Error).message).slice(0, 120) }); }
+    const out: unknown[] = [];
+    for (const r of ms ?? []) {
+      const cal = String(r.data?.calendarId || '').trim();
+      if (!cal) { out.push({ who: r.data?.name, calendarId: '(空白)', email: r.data?.email || '' }); continue; }
+      const u = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal)}/events`);
+      u.search = new URLSearchParams({ timeMin: `${today}T00:00:00+08:00`, timeMax: `${today}T23:59:59+08:00`, singleEvents: 'true', maxResults: '50' }).toString();
+      const ev = await fetch(u, { headers: { Authorization: `Bearer ${token}` } });
+      const ej = await ev.json().catch(() => ({}));
+      const fb = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ timeMin: `${today}T00:00:00+08:00`, timeMax: `${today}T23:59:59+08:00`, items: [{ id: cal }] }) });
+      const fj = await fb.json().catch(() => ({}));
+      const c = fj.calendars?.[cal] ?? {};
+      out.push({ who: r.data?.name, calendarId: cal, private: !!r.data?.calPrivate, events_status: ev.status, accessRole: ej.accessRole, items: (ej.items ?? []).length, withTitle: (ej.items ?? []).filter((x: { summary?: string }) => x.summary).length, error: ej.error?.message, freebusy_busy: (c.busy ?? []).length, freebusy_error: (c.errors ?? []).map((x: { reason: string }) => x.reason).join(',') });
+    }
+    return json({ ok: true, today, calendars: out });
+  }
 
   const [{ data: tasks }, { data: projects }, { data: depts }, { data: members }] = await Promise.all([
     sb.from('tasks').select('id,data').neq('data->>status', 'done'),
