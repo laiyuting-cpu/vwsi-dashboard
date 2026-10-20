@@ -20,7 +20,7 @@
   --yellow:#ffe116; --yellow-ink:#262626; --hl:rgba(255,225,22,.55);
   --red:#c8372d; --red-soft:#fbe4e1; --amber:#b86e00; --amber-soft:#fdf0d9; --green:#1e8a4c; --green-soft:#dff2e6; --violet:#6a4bb8; --violet-soft:#ece6f8;
   --shadow:0 1px 2px rgba(20,40,60,.06),0 4px 14px rgba(20,40,60,.06);
-  --c-proj:#006ebf; --c-todo:#c98a00;
+  --c-proj:#006ebf; --c-todo:#c98a00; --c-meet:#8a96a3;
   --f-body:"GenSen Rounded","源泉圓體","GenSenRounded2 TW","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
   --r:10px;
@@ -31,14 +31,14 @@
   --blue:#4ea3e6; --blue-soft:#163246; --on-blue:#0b1620;
   --yellow:#ffe116; --yellow-ink:#262626; --hl:rgba(255,225,22,.28);
   --red:#ff7a6e; --red-soft:#3a1d1b; --amber:#f2b34d; --amber-soft:#36290f; --green:#5fd08f; --green-soft:#16301f; --violet:#b39cf2; --violet-soft:#2a2340;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25); --c-proj:#3d8fd6; --c-todo:#b07c10; color-scheme:dark}}
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25); --c-proj:#3d8fd6; --c-todo:#b07c10; --c-meet:#6f7b86; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#12171c; --surface:#1a2027; --surface-2:#222a33; --line:#2f3943;
   --ink:#ecf0f3; --ink-2:#aab4bd; --ink-3:#7b8792;
   --blue:#4ea3e6; --blue-soft:#163246; --on-blue:#0b1620;
   --yellow:#ffe116; --yellow-ink:#262626; --hl:rgba(255,225,22,.28);
   --red:#ff7a6e; --red-soft:#3a1d1b; --amber:#f2b34d; --amber-soft:#36290f; --green:#5fd08f; --green-soft:#16301f; --violet:#b39cf2; --violet-soft:#2a2340;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25); --c-proj:#3d8fd6; --c-todo:#b07c10; color-scheme:dark}
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25); --c-proj:#3d8fd6; --c-todo:#b07c10; --c-meet:#6f7b86; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
@@ -359,6 +359,10 @@ input[type=range]{width:100%;accent-color:var(--green)}
 /* dm stats */
 .tb td.who{display:table-cell}
 .tb td.num,.tb th.num{min-width:64px;text-align:right}
+.titem.cal{border-left:3px solid var(--c-meet);background:var(--surface-2);cursor:default}
+.calrow{display:flex;gap:8px;font-size:13px;padding:3px 0}.calrow .tm{font-family:var(--f-mono);color:var(--ink-3);width:92px;flex:none}
+.calst{font-size:11px;padding:0 6px;border-radius:4px;white-space:nowrap}.calst.ok{background:var(--green-soft);color:var(--green)}.calst.warn{background:var(--amber-soft);color:var(--amber)}.calst.no{background:var(--surface-2);color:var(--ink-3)}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 .dmc{display:inline-flex;gap:3px;flex-wrap:wrap;align-items:center}
 .dmc i{display:inline-block;height:12px;border-radius:3px;border:1.5px dashed}
 .dmc i.h1{width:12px;border-color:var(--c-todo)}.dmc i.h2{width:26px;border-color:var(--c-proj)}
@@ -848,7 +852,7 @@ function myPanel(m,d){
   let h='<section class="mine"><div class="mine-h">'+avatar(m)+'<h2>我'+(d===S.date0?'今天':'這天')+'的三件事</h2><span class="st" id="dm-saved">'+(doc?.updatedAt?'<span class="slack-ok">✓ 已儲存 '+esc(new Date(doc.updatedAt).toTimeString().slice(0,5))+'</span>':'<span class="hint">還沒填寫</span>')+'</span></div>';
   if(openCuts.length)h+='<div class="mine-sec" style="background:var(--amber-soft)"><h3>🔁 有 '+openCuts.length+' 個插隊請求</h3>'+openCuts.map(c=>cmtHtml(c,true)).join('')+'</div>';
   h+=items.map((it,i)=>'<div class="slot2'+(it.done?' is-done':'')+'"><label class="dm-ck" title="完成了就打勾"><input type="checkbox" id="dmd-'+i+'" data-act="dmDone" data-i="'+i+'" '+(it.done?'checked':'')+' aria-label="第 '+(i+1)+' 件完成">✓</label><span class="dm-no'+(i===0?' first':'')+'">'+(i+1)+'</span><input type="text" id="dmt-'+i+'" data-dm="'+i+'" value="'+esc(it.t)+'" placeholder="'+['今天最重要的成果，例如：完成招生文案初稿','第二個成果','第三個成果'][i]+'" maxlength="120" autocomplete="off"><span class="seg2" role="radiogroup" aria-label="預估時間"><label><input type="radio" name="dmh-'+i+'" value="1" data-dmh="'+i+'" '+(Number(it.h)!==2?'checked':'')+'>1 小時</label><label><input type="radio" name="dmh-'+i+'" value="2" data-dmh="'+i+'" '+(Number(it.h)===2?'checked':'')+'>2 小時</label></span>'+dmLinkHtml(it)+'</div>').join('');
-  h+='<div class="mine-foot"><div class="meter"><div class="hint">預估 <b class="mono" id="dm-hrs">'+hrs+'</b> / 8 小時・完成 <b class="mono">'+done+'</b>/'+cnt+'</div><div class="bar" style="margin-top:4px"><span id="dm-bar" style="width:'+Math.min(100,hrs/8*100)+'%;background:var(--blue)"></span></div></div>'+(myOpen.length||myTd.length?'<select id="dmPick" data-act="dmPick" style="width:auto;max-width:220px" aria-label="從我的任務帶入"><option value="">＋ 從我的任務帶入</option>'+(myTd.length?'<optgroup label="我的待辦">'+myTd.map(x=>'<option value="td:'+esc(x.id)+'">'+esc((recOf(x)?'🔁 ':'')+x.title)+'</option>').join('')+'</optgroup>':'')+'<optgroup label="專案任務">'+myOpen.slice(0,60).map(t=>'<option value="'+esc(t.id)+'">'+esc((t.due?fmtD(t.due)+'｜':'')+t.title)+'</option>').join('')+'</optgroup></select>':'')+'<button class="btn primary" data-act="dmSave">儲存</button></div>'+routineSec(m,d,items);
+  h+='<div class="mine-foot"><div class="meter"><div class="hint">預估 <b class="mono" id="dm-hrs">'+hrs+'</b> / 8 小時・完成 <b class="mono">'+done+'</b>/'+cnt+'</div><div class="bar" style="margin-top:4px"><span id="dm-bar" style="width:'+Math.min(100,hrs/8*100)+'%;background:var(--blue)"></span></div></div>'+(myOpen.length||myTd.length?'<select id="dmPick" data-act="dmPick" style="width:auto;max-width:220px" aria-label="從我的任務帶入"><option value="">＋ 從我的任務帶入</option>'+(myTd.length?'<optgroup label="我的待辦">'+myTd.map(x=>'<option value="td:'+esc(x.id)+'">'+esc((recOf(x)?'🔁 ':'')+x.title)+'</option>').join('')+'</optgroup>':'')+'<optgroup label="專案任務">'+myOpen.slice(0,60).map(t=>'<option value="'+esc(t.id)+'">'+esc((t.due?fmtD(t.due)+'｜':'')+t.title)+'</option>').join('')+'</optgroup></select>':'')+'<button class="btn primary" data-act="dmSave">儲存</button></div>'+routineSec(m,d,items)+myCalSec(m,d);
   if(d===S.date0&&cnt)h+='<div class="mine-sec"><h3>🌙 下班回報'+(doc?.report?' <span class="badge-ok">已回報 '+esc((doc.report.at||'').slice(11,16))+'</span>':'')+'</h3><textarea id="dmr-note" rows="2" placeholder="沒完成的原因，或明天要接續的事（選填）" style="min-height:40px">'+esc(doc?.report?.note||'')+'</textarea><div style="display:flex;justify-content:flex-end"><button class="btn '+(doc?.report?'':'primary')+'" data-act="dmReport">'+(doc?.report?'更新回報':'送出下班回報')+'</button></div></div>';
   const others=cmts.filter(c=>!(c.kind==='cut'&&!c.resolved));
   if(others.length)h+='<div class="mine-sec"><h3>留言</h3>'+others.map(c=>cmtHtml(c,true)).join('')+'</div>';
@@ -1062,7 +1066,29 @@ function weekDays(base){const d=parseD(base);const mon=addDays(base,-((d.getDay(
 function dayHours(mid,d){
   const proj=isWeekend(d)?0:liveTasks().filter(t=>t.owner===mid&&t.start&&t.due&&t.start<=d&&d<=t.due).reduce((s,t)=>s+taskHours(t),0);
   const todo=todosOn(mid,d).filter(x=>x.hours).reduce((s,x)=>s+Number(x.hours),0);
-  return {proj:Math.round(proj*10)/10,todo:Math.round(todo*10)/10,total:Math.round((proj+todo)*10)/10};
+  const meet=meetHours(mid,d);
+  return {proj:Math.round(proj*10)/10,todo:Math.round(todo*10)/10,meet,total:Math.round((proj+todo+meet)*10)/10};
+}
+/* ---------- member calendars (shared to vwsi-bot) ---------- */
+const toMin=s=>Number(s.slice(11,13))*60+Number(s.slice(14,16));
+function evRange(e){const a=e.start||{},b=e.end||{};if(a.dateTime)return {allDay:false,s:a.dateTime.slice(0,16),e:(b.dateTime||a.dateTime).slice(0,16)};const sd=(a.date||'').slice(0,10),ed=(b.date||'').slice(0,10);return {allDay:true,sd,ed:ed>sd?ed:addDays(sd,1)}}
+function memberEvents(mid,d){const c=S.mcal&&S.mcal.data&&S.mcal.data[mid];if(!c||!c.events)return [];return c.events.filter(e=>{const r=evRange(e);if(r.allDay)return r.sd<=d&&d<r.ed;return r.s.slice(0,10)<=d&&d<=r.e.slice(0,10)&&!(r.e.slice(0,10)===d&&r.e.slice(11,16)==='00:00'&&r.s.slice(0,10)<d)})}
+function meetHours(mid,d){let h=0;for(const e of memberEvents(mid,d)){const r=evRange(e);if(r.allDay)continue;const st=r.s.slice(0,10)<d?d+'T00:00':r.s,en=r.e.slice(0,10)>d?d+'T24:00':r.e;const m=toMin(en)-toMin(st);if(m>0)h+=m/60}return Math.min(12,Math.round(h*10)/10)}
+function evLabel(e,d){const r=evRange(e);const tm=r.allDay?'整天':(r.s.slice(0,10)<d?'00:00':r.s.slice(11,16))+'–'+(r.e.slice(0,10)>d?'24:00':r.e.slice(11,16));return {tm,title:e.busy?'忙碌':(e.summary||'（無標題）'),loc:e.location||''}}
+function calStatus(mid){const c=S.mcal&&S.mcal.data&&S.mcal.data[mid];return c?c.status:(S.mcal&&S.mcal.loading?'loading':'')}
+function calStatusChip(mid){const st=calStatus(mid);return st==='full'?'<span class="calst ok">📅 完整行程</span>':st==='busy'?'<span class="calst ok">📅 只顯示忙碌</span>':st==='not_shared'?'<span class="calst warn">📅 還沒分享</span>':st==='none'?'<span class="calst no">📅 未設定</span>':''}
+async function loadMemberCals(d,force){if(!S.sb)return;const w=weekDays(d||S.date0);const key=w[0];if(!force&&S.mcal&&S.mcal.key===key&&(S.mcal.loading||Date.now()-S.mcal.at<180000))return;
+  S.mcal={...(S.mcal||{}),key,loading:true,at:Date.now()};
+  try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{mode:'members',from:w[0],to:w[6]}});let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}S.mcal={key,at:Date.now(),data:r&&r.ok?r.members:{},error:r&&r.ok?'':(r&&r.error)||'error'}}
+  catch(e){console.warn(e);S.mcal={key,at:Date.now(),data:{},error:'error'}}
+  render();if(S.view==='settings')drawOverlay(true);
+}
+function myCalSec(m,d){loadMemberCals(d);const st=calStatus(m.id);
+  let h='<div class="mine-sec"><h3>📅 '+(d===S.date0?'今天':'這天')+'的行程 '+calStatusChip(m.id)+'</h3>';
+  if(st==='loading'||!st)return h+'<span class="hint">讀取中…</span></div>';
+  if(st==='none'||st==='not_shared')return h+'<span class="hint">'+(st==='none'?'還沒連接你的行事曆。':'行事曆還沒分享給 vwsi-bot。')+' <a href="#settings" style="color:var(--blue)">到「設定 → 我的行事曆」看 2 分鐘教學</a></span></div>';
+  const ev=memberEvents(m.id,d);if(!ev.length)return h+'<span class="hint">這天沒有行程。</span></div>';
+  return h+ev.map(e=>{const l=evLabel(e,d);return '<div class="calrow"><span class="tm">'+esc(l.tm)+'</span><span>'+esc(l.title)+(l.loc?' <span class="hint">'+esc(l.loc)+'</span>':'')+'</span></div>'}).join('')+'<div class="hint">共 '+meetHours(m.id,d)+' 小時，會算進「團隊 → 每週工時」</div></div>';
 }
 function teamDay(days){return days.includes(S.teamDay)?S.teamDay:days.includes(S.date0)?S.date0:days[0]}
 function teamMobTodos(ms,days,wd){
@@ -1075,23 +1101,23 @@ function teamMobTodos(ms,days,wd){
     const hr=dayHours(m.id,sel);
     h+='<div class="mc"><div class="mc-h">'+avatar(m)+'<span class="nm">'+esc(m.name)+'</span>'+(hr.total?'<span class="hsum'+(hr.total>HOURS_PER_DAY?' over':'')+'">'+hr.total+' 小時</span>':'')+'</div><div class="tcell">'+
       (dm.length?'<div class="hint">★ 三件事 '+dm.filter(x=>x.done).length+'/'+dm.length+'：'+esc(dm.map(x=>(x.done?'✓':'')+x.t).join('、'))+'</div>':'')+
-      pt.map(t=>'<div class="titem proj'+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'"><span>'+esc(t.title)+'</span><span class="h">到期</span></div>').join('')+
+      memberEvents(m.id,sel).map(e=>{const l=evLabel(e,sel);return '<div class="titem cal"><span>📅 '+esc(l.tm)+' '+esc(l.title)+'</span></div>'}).join('')+pt.map(t=>'<div class="titem proj'+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'"><span>'+esc(t.title)+'</span><span class="h">到期</span></div>').join('')+
       td.map(x=>'<div class="titem'+(x.done?' done':'')+'" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+(typeof sel!=='undefined'?sel:d)+'"><span>'+(x.done?'✓ ':'')+(recOf(x)?'🔁 ':'')+esc(x.title)+'</span>'+(x.hours?'<span class="h">'+x.hours+'h</span>':'')+'</div>').join('')+
-      (!pt.length&&!td.length&&!dm.length?'<span class="hint">這天沒有待辦</span>':'')+'</div></div>';
+      (!pt.length&&!td.length&&!dm.length&&!memberEvents(m.id,sel).length?'<span class="hint">這天沒有待辦</span>':'')+'</div></div>';
   }
   return h+'</div><div class="legend" style="padding-inline:0"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務到期</span><span>點一下看詳情，只有本人能編輯</span></div></div>';
 }
 function teamMobHours(rows,days,wd,bar){
   let h='<div class="only-mob"><div class="mcards">';let grand=0;
   for(const r of rows){
-    const tot=Math.round(r.ds.reduce((s,x)=>s+x.total,0)*10)/10,tp=Math.round(r.ds.reduce((s,x)=>s+x.proj,0)*10)/10,tt=Math.round(r.ds.reduce((s,x)=>s+x.todo,0)*10)/10;grand+=tot;
+    const tot=Math.round(r.ds.reduce((s,x)=>s+x.total,0)*10)/10,tp=Math.round(r.ds.reduce((s,x)=>s+x.proj,0)*10)/10,tt=Math.round(r.ds.reduce((s,x)=>s+x.todo,0)*10)/10,tm=Math.round(r.ds.reduce((s,x)=>s+(x.meet||0),0)*10)/10;grand+=tot;
     const pct=v=>Math.min(v,60)/60*100;
     h+='<div class="mc"><div class="mc-h">'+avatar(r.m)+'<span class="nm">'+esc(r.m.name)+'</span><b class="mono" style="color:'+(tot>40?'var(--red)':'var(--ink)')+'">'+tot+'</b><span class="hint">/ 40 小時</span></div>'+
-      '<div style="position:relative;height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden;display:flex"><span style="width:'+pct(tp)+'%;background:var(--c-proj)"></span><span style="width:'+(pct(tp+tt)-pct(tp))+'%;background:var(--c-todo);margin-left:'+(tp&&tt?2:0)+'px"></span><i style="position:absolute;left:'+pct(40)+'%;top:0;bottom:0;width:2px;background:var(--ink-2)"></i></div>'+
-      '<div class="hint" style="margin:4px 0 6px">專案 '+tp+'・待辦 '+tt+'</div>'+
+      '<div style="position:relative;height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden;display:flex"><span style="width:'+pct(tp)+'%;background:var(--c-proj)"></span><span style="width:'+(pct(tp+tt)-pct(tp))+'%;background:var(--c-todo);margin-left:'+(tp&&tt?2:0)+'px"></span><span style="width:'+(pct(tp+tt+tm)-pct(tp+tt))+'%;background:var(--c-meet);margin-left:'+((tp||tt)&&tm?2:0)+'px"></span><i style="position:absolute;left:'+pct(40)+'%;top:0;bottom:0;width:2px;background:var(--ink-2)"></i></div>'+
+      '<div class="hint" style="margin:4px 0 6px">專案 '+tp+'・待辦 '+tt+(tm?'・行程 '+tm:'')+'</div>'+
       '<div class="wbars">'+r.ds.map((x,i)=>'<div>'+bar(x)+'<div class="v mono" style="font-size:12px;color:'+(x.total>HOURS_PER_DAY?'var(--red)':'var(--ink)')+'">'+(x.total||'·')+'</div><div class="d'+(days[i]===S.date0?' today':'')+'">'+wd[i]+'</div></div>').join('')+'</div></div>';
   }
-  return h+'</div><div class="legend" style="padding-inline:0"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務</span><span><span class="sw" style="background:var(--c-todo)"></span>個人待辦</span><span>虛線＝8 小時；紅字＝超過</span><span>團隊本週合計 <b class="mono">'+Math.round(grand*10)/10+'</b> 小時</span></div></div>';
+  return h+'</div><div class="legend" style="padding-inline:0"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務</span><span><span class="sw" style="background:var(--c-todo)"></span>個人待辦</span><span><span class="sw" style="background:var(--c-meet)"></span>行程</span><span>虛線＝8 小時；紅字＝超過</span><span>團隊本週合計 <b class="mono">'+Math.round(grand*10)/10+'</b> 小時</span></div></div>';
 }
 function dmWeek(mid,days){const per=days.map(d=>(dailyOf(d+'_'+mid)?.items||[]).filter(x=>x.t).map(x=>({h:Number(x.h)===2?2:1,done:!!x.done,t:x.t})));
   const all=per.flat();const c1=all.filter(x=>x.h===1),c2=all.filter(x=>x.h===2);
@@ -1115,7 +1141,7 @@ function dmLegend(){return '<div class="legend"><span><span class="sw" style="ba
 function viewTeam(){
   const ms=teamMembers();const tab=S.ttab||'todos';const base=S.teamWeek||S.date0;const days=weekDays(base);const wd=['一','二','三','四','五','六','日'];
   let h='<div class="page-head"><div><div class="eyebrow">'+(isAdmin()?'全體夥伴':ms.length>1?'你負責的部門':'只有你自己')+'</div><h1>團隊</h1></div><div class="toolbar"><button class="btn" data-act="twPrev" aria-label="上一週">‹</button><button class="btn" data-act="twToday">本週</button><button class="btn" data-act="twNext" aria-label="下一週">›</button><b>'+fmtD(days[0]).split(' ')[0]+' – '+fmtD(days[6]).split(' ')[0]+'</b></div></div>';
-  subWeek(days);
+  subWeek(days);loadMemberCals(days[0]);
   h+='<div class="tabs2">'+[['todos','每日待辦'],['hours','每週工時'],['dm','三件事統計']].map(([k,l])=>'<button data-act="ttab" data-v="'+k+'" aria-pressed="'+(tab===k)+'">'+l+'</button>').join('')+'</div>';
   if(!ms.length)return h+'<div class="panel">'+empty('先在上方選擇你是哪一位。')+'</div>';
   if(tab==='dm')return h+teamDmStats(ms,days,wd);
@@ -1128,27 +1154,27 @@ function viewTeam(){
         const pt=liveTasks().filter(t=>t.owner===m.id&&t.due===d);
         const dm=(dailyOf(d+'_'+m.id)?.items||[]).filter(x=>x.t);
         const hr=dayHours(m.id,d);
-        const inner=pt.map(t=>'<div class="titem proj'+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'" title="專案任務到期"><span>'+esc(t.title)+'</span></div>').join('')+td.map(x=>'<div class="titem'+(x.done?' done':'')+'" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+(typeof sel!=='undefined'?sel:d)+'"><span>'+(x.done?'✓ ':'')+(recOf(x)?'🔁 ':'')+esc(x.title)+'</span>'+(x.hours?'<span class="h">'+x.hours+'h</span>':'')+'</div>').join('');
+        const inner=memberEvents(m.id,d).map(e=>{const l=evLabel(e,d);return '<div class="titem cal" title="'+esc(l.tm+' '+l.title+(l.loc?'｜'+l.loc:''))+'"><span>📅 '+esc(l.tm)+' '+esc(l.title)+'</span></div>'}).join('')+pt.map(t=>'<div class="titem proj'+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'" title="專案任務到期"><span>'+esc(t.title)+'</span></div>').join('')+td.map(x=>'<div class="titem'+(x.done?' done':'')+'" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+(typeof sel!=='undefined'?sel:d)+'"><span>'+(x.done?'✓ ':'')+(recOf(x)?'🔁 ':'')+esc(x.title)+'</span>'+(x.hours?'<span class="h">'+x.hours+'h</span>':'')+'</div>').join('');
         return '<td class="'+(i>4?'wkend ':'')+(d===S.date0?'today':'')+'"><div class="tcell">'+(inner||'<span class="hint">—</span>')+(dm.length?'<span class="hint" title="'+esc(dm.map(x=>x.t).join('、'))+'">★ 三件事 '+dm.filter(x=>x.done).length+'/'+dm.length+'</span>':'')+(hr.total?'<span class="hsum'+(hr.total>HOURS_PER_DAY?' over':'')+'">共 '+hr.total+' 小時</span>':'')+'</div></td>'}).join('')+'</tr>';
     }
-    return h+'</tbody></table></div><div class="legend"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務（到期日）</span><span>其他為個人待辦，點一下看詳情</span><span>★ 三件事為當天 Daily Mission 完成數</span><span>只有本人能編輯自己的待辦</span></div></section>';
+    return h+'</tbody></table></div><div class="legend"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務（到期日）</span><span>其他為個人待辦，點一下看詳情</span><span><span class="sw" style="background:var(--c-meet)"></span>行事曆（夥伴分享給 vwsi-bot 的行程）</span><span>★ 三件事為當天 Daily Mission 完成數</span><span>只有本人能編輯自己的待辦</span></div></section>';
   }
   // weekly hours chart table
   const MAXH=12,BH=64,BW=22;
   const rows=ms.map(m=>({m,ds:days.map(d=>dayHours(m.id,d))}));
-  const bar=(x,d)=>{const pj=Math.min(x.proj,MAXH),tdv=Math.min(x.todo,Math.max(0,MAXH-pj));const hp=pj/MAXH*BH,ht=tdv/MAXH*BH,y8=BH-8/MAXH*BH;
-    return '<svg width="'+(BW+12)+'" height="'+BH+'" viewBox="0 0 '+(BW+12)+' '+BH+'" aria-hidden="true">'+(hp?'<rect x="6" y="'+(BH-hp)+'" width="'+BW+'" height="'+hp+'" rx="'+(ht?0:4)+'" fill="var(--c-proj)"/>':'')+(ht?'<rect x="6" y="'+(BH-hp-ht)+'" width="'+BW+'" height="'+Math.max(0,ht-(hp?2:0))+'" rx="3" fill="var(--c-todo)"/>':'')+'<line x1="0" x2="'+(BW+12)+'" y1="'+y8+'" y2="'+y8+'" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1"/></svg>'};
+  const bar=(x,d)=>{const pj=Math.min(x.proj,MAXH),tdv=Math.min(x.todo,Math.max(0,MAXH-pj)),mt=Math.min(x.meet||0,Math.max(0,MAXH-pj-tdv));const hp=pj/MAXH*BH,ht=tdv/MAXH*BH,hm=mt/MAXH*BH,y8=BH-8/MAXH*BH;
+    return '<svg width="'+(BW+12)+'" height="'+BH+'" viewBox="0 0 '+(BW+12)+' '+BH+'" aria-hidden="true">'+(hp?'<rect x="6" y="'+(BH-hp)+'" width="'+BW+'" height="'+hp+'" rx="'+(ht?0:4)+'" fill="var(--c-proj)"/>':'')+(ht?'<rect x="6" y="'+(BH-hp-ht)+'" width="'+BW+'" height="'+Math.max(0,ht-(hp?2:0))+'" rx="3" fill="var(--c-todo)"/>':'')+(hm?'<rect x="6" y="'+(BH-hp-ht-hm)+'" width="'+BW+'" height="'+Math.max(0,hm-((hp||ht)?2:0))+'" rx="3" fill="var(--c-meet)"/>':'')+'<line x1="0" x2="'+(BW+12)+'" y1="'+y8+'" y2="'+y8+'" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1"/></svg>'};
   h+=teamMobHours(rows,days,wd,bar);
   h+='<section class="panel only-desk"><div class="tbl-wrap"><table class="tb wh"><thead><tr><th>夥伴</th>'+days.map((d,i)=>'<th class="'+(i>4?'wkend ':'')+(d===S.date0?'today':'')+'" style="text-align:center">週'+wd[i]+'<br><span class="mono">'+Number(d.slice(5,7))+'/'+Number(d.slice(8))+'</span></th>').join('')+'<th style="min-width:200px">本週合計（基準 40 小時）</th></tr></thead><tbody>';
   const colTot=days.map(()=>0);let grand=0;
   for(const r of rows){
-    const tot=r.ds.reduce((s,x)=>s+x.total,0),tp=r.ds.reduce((s,x)=>s+x.proj,0),tt=r.ds.reduce((s,x)=>s+x.todo,0);grand+=tot;
+    const tot=r.ds.reduce((s,x)=>s+x.total,0),tp=r.ds.reduce((s,x)=>s+x.proj,0),tt=r.ds.reduce((s,x)=>s+x.todo,0),tm=r.ds.reduce((s,x)=>s+(x.meet||0),0);grand+=tot;
     const W=160,sc=v=>Math.min(v,60)/60*W;
-    h+='<tr><td class="who"><span class="chip">'+avatar(r.m)+esc(r.m.name)+'</span></td>'+r.ds.map((x,i)=>{colTot[i]+=x.total;return '<td class="'+(i>4?'wkend ':'')+(days[i]===S.date0?'today':'')+'" title="'+esc(r.m.name+' '+days[i]+'｜專案 '+x.proj+' 小時・待辦 '+x.todo+' 小時')+'"><div class="cellchart">'+bar(x)+'<span class="v'+(x.total>HOURS_PER_DAY?' over':'')+'">'+(x.total||'·')+'</span></div></td>'}).join('')+
-      '<td style="vertical-align:middle"><svg width="'+W+'" height="18" viewBox="0 0 '+W+' 18" aria-hidden="true"><rect x="0" y="4" width="'+W+'" height="10" rx="5" fill="var(--surface-2)"/>'+(tp?'<rect x="0" y="4" width="'+sc(tp)+'" height="10" rx="'+(tt?0:5)+'" fill="var(--c-proj)"/>':'')+(tt?'<rect x="'+(sc(tp)+(tp?2:0))+'" y="4" width="'+Math.max(0,sc(tp+tt)-sc(tp)-(tp?2:0))+'" height="10" rx="3" fill="var(--c-todo)"/>':'')+'<line x1="'+sc(40)+'" x2="'+sc(40)+'" y1="0" y2="18" stroke="var(--ink-2)" stroke-width="2"/></svg><div class="hint"><b class="mono" style="color:'+(tot>40?'var(--red)':'var(--ink)')+'">'+Math.round(tot*10)/10+'</b> 小時・專案 '+Math.round(tp*10)/10+'・待辦 '+Math.round(tt*10)/10+'</div></td></tr>';
+    h+='<tr><td class="who"><span class="chip">'+avatar(r.m)+esc(r.m.name)+'</span></td>'+r.ds.map((x,i)=>{colTot[i]+=x.total;return '<td class="'+(i>4?'wkend ':'')+(days[i]===S.date0?'today':'')+'" title="'+esc(r.m.name+' '+days[i]+'｜專案 '+x.proj+' 小時・待辦 '+x.todo+' 小時・行程 '+(x.meet||0)+' 小時')+'"><div class="cellchart">'+bar(x)+'<span class="v'+(x.total>HOURS_PER_DAY?' over':'')+'">'+(x.total||'·')+'</span></div></td>'}).join('')+
+      '<td style="vertical-align:middle"><svg width="'+W+'" height="18" viewBox="0 0 '+W+' 18" aria-hidden="true"><rect x="0" y="4" width="'+W+'" height="10" rx="5" fill="var(--surface-2)"/>'+(tp?'<rect x="0" y="4" width="'+sc(tp)+'" height="10" rx="'+(tt?0:5)+'" fill="var(--c-proj)"/>':'')+(tt?'<rect x="'+(sc(tp)+(tp?2:0))+'" y="4" width="'+Math.max(0,sc(tp+tt)-sc(tp)-(tp?2:0))+'" height="10" rx="3" fill="var(--c-todo)"/>':'')+(tm?'<rect x="'+(sc(tp+tt)+((tp||tt)?2:0))+'" y="4" width="'+Math.max(0,sc(tp+tt+tm)-sc(tp+tt)-((tp||tt)?2:0))+'" height="10" rx="3" fill="var(--c-meet)"/>':'')+'<line x1="'+sc(40)+'" x2="'+sc(40)+'" y1="0" y2="18" stroke="var(--ink-2)" stroke-width="2"/></svg><div class="hint"><b class="mono" style="color:'+(tot>40?'var(--red)':'var(--ink)')+'">'+Math.round(tot*10)/10+'</b> 小時・專案 '+Math.round(tp*10)/10+'・待辦 '+Math.round(tt*10)/10+(tm?'・行程 '+Math.round(tm*10)/10:'')+'</div></td></tr>';
   }
   h+='</tbody><tfoot><tr><td class="who">團隊合計</td>'+colTot.map((v,i)=>'<td class="'+(i>4?'wkend':'')+'"><span class="mono">'+(Math.round(v*10)/10||'·')+'</span></td>').join('')+'<td><span class="mono">'+Math.round(grand*10)/10+'</span> 小時</td></tr></tfoot></table></div>';
-  h+='<div class="legend"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務（工作天數 × 每天時數）</span><span><span class="sw" style="background:var(--c-todo)"></span>個人待辦（預估時數）</span><span>虛線＝每天 8 小時；數字紅色＝超過</span><span>右側直線＝每週 40 小時</span><span>Daily Mission 不另外計算，避免重複</span></div></section>';
+  h+='<div class="legend"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務（工作天數 × 每天時數）</span><span><span class="sw" style="background:var(--c-todo)"></span>個人待辦（預估時數）</span><span><span class="sw" style="background:var(--c-meet)"></span>行事曆上的行程（整天的活動不算）</span><span>虛線＝每天 8 小時；數字紅色＝超過</span><span>右側直線＝每週 40 小時</span><span>Daily Mission 不另外計算，避免重複</span></div></section>';
   return h;
 }
 /* ---------- manuals ---------- */
@@ -1207,7 +1233,13 @@ function viewSettings(){
   const ds=Object.values(S.depts).sort((a,b)=>(a.order??0)-(b.order??0));
   const adm=S.canWrite&&isAdmin();const dis=adm?'':'disabled';const my=me();
   let h='<div class="page-head"><div><div class="eyebrow">名單、部門與範本</div><h1>設定</h1></div></div><div class="grid">';
-  const rows=ms.map(m=>{const self=my&&my.id===m.id;const canPic=S.assets&&(adm||self);return '<tr><td>'+(canPic?'<button class="btn ghost sm" data-act="pickAvatar" data-id="'+esc(m.id)+'" title="更換頭貼" style="padding:0">'+avatar(m)+'</button>':avatar(m))+'</td><td><input type="text" aria-label="姓名" data-mfield="name" data-id="'+esc(m.id)+'" value="'+esc(m.name)+'" '+dis+'></td><td><input type="text" aria-label="職稱" data-mfield="role" data-id="'+esc(m.id)+'" value="'+esc(m.role||'')+'" '+dis+'></td><td><select aria-label="部門" data-mfield="dept" data-id="'+esc(m.id)+'" '+dis+'>'+ds.map(d=>'<option value="'+esc(d.id)+'" '+(d.id===m.dept?'selected':'')+'>'+esc(d.name)+'</option>').join('')+'</select></td><td><select aria-label="身分" data-mfield="kind" data-id="'+esc(m.id)+'" '+dis+'>'+KINDS.map(k=>'<option '+(k===m.kind?'selected':'')+'>'+k+'</option>').join('')+'</select></td><td><span class="perm '+roleOf(m)+'">'+ROLE_LABEL[roleOf(m)]+'</span></td><td><label class="inline"><input type="checkbox" data-mfield="active" data-id="'+esc(m.id)+'" '+(m.active!==false?'checked':'')+' '+dis+'> 在職</label></td><td>'+(adm?'<input type="text" inputmode="email" autocomplete="off" aria-label="登入 Email" data-mfield="email" data-id="'+esc(m.id)+'" value="'+esc(m.email||'')+'" placeholder="name@vwsicamp.com" style="min-width:190px">':'<span class="hint">'+esc(m.email||'—')+'</span>')+'</td><td>'+(m.uid?(m.uid===S.uid?'<span class="pill s-done">我</span>':'<span class="pill s-doing">已登入過</span>')+(adm&&m.uid!==S.uid?' <button class="btn ghost sm" data-act="unclaim" data-id="'+esc(m.id)+'" title="換 Google 帳號時使用">解除</button>':''):'<span class="hint">還沒登入</span>')+'</td></tr>'}).join('');
+  const rows=ms.map(m=>{const self=my&&my.id===m.id;const canPic=S.assets&&(adm||self);return '<tr><td>'+(canPic?'<button class="btn ghost sm" data-act="pickAvatar" data-id="'+esc(m.id)+'" title="更換頭貼" style="padding:0">'+avatar(m)+'</button>':avatar(m))+'</td><td><input type="text" aria-label="姓名" data-mfield="name" data-id="'+esc(m.id)+'" value="'+esc(m.name)+'" '+dis+'></td><td><input type="text" aria-label="職稱" data-mfield="role" data-id="'+esc(m.id)+'" value="'+esc(m.role||'')+'" '+dis+'></td><td><select aria-label="部門" data-mfield="dept" data-id="'+esc(m.id)+'" '+dis+'>'+ds.map(d=>'<option value="'+esc(d.id)+'" '+(d.id===m.dept?'selected':'')+'>'+esc(d.name)+'</option>').join('')+'</select></td><td><select aria-label="身分" data-mfield="kind" data-id="'+esc(m.id)+'" '+dis+'>'+KINDS.map(k=>'<option '+(k===m.kind?'selected':'')+'>'+k+'</option>').join('')+'</select></td><td><span class="perm '+roleOf(m)+'">'+ROLE_LABEL[roleOf(m)]+'</span></td><td><label class="inline"><input type="checkbox" data-mfield="active" data-id="'+esc(m.id)+'" '+(m.active!==false?'checked':'')+' '+dis+'> 在職</label></td><td>'+(adm?'<input type="text" inputmode="email" autocomplete="off" aria-label="登入 Email" data-mfield="email" data-id="'+esc(m.id)+'" value="'+esc(m.email||'')+'" placeholder="name@vwsicamp.com" style="min-width:190px">':'<span class="hint">'+esc(m.email||'—')+'</span>')+'</td><td>'+(m.uid?(m.uid===S.uid?'<span class="pill s-done">我</span>':'<span class="pill s-doing">已登入過</span>')+(adm&&m.uid!==S.uid?' <button class="btn ghost sm" data-act="unclaim" data-id="'+esc(m.id)+'" title="換 Google 帳號時使用">解除</button>':''):'<span class="hint">還沒登入</span>')+' '+calStatusChip(m.id)+'</td></tr>'}).join('');
+  if(my){loadMemberCals(S.date0);const st=calStatus(my.id);
+    h+=panel('我的行事曆',calStatusChip(my.id),'<div class="panel-b pad" style="display:flex;flex-direction:column;gap:12px"><p class="sub" style="margin:0">把你的 Google 日曆分享給工作台的服務帳號，Daily Mission 和「團隊」就會顯示你的行程，會議時數也會算進每週工時。<b>要分享完整內容還是只顯示忙碌，由你決定。</b></p>'+
+      '<ol class="steps"><li>打開 <a href="https://calendar.google.com/calendar/u/0/r/settings" target="_blank" rel="noopener" style="color:var(--blue)">Google 日曆設定</a>，左邊「<b>我的日曆設定</b>」點你自己的日曆</li><li>往下找到「<b>與特定使用者或群組共用</b>」→「<b>+ 新增使用者和群組</b>」</li><li>貼上 <code class="mono" style="user-select:all">vwsi-bot@vwsi-dashboard.iam.gserviceaccount.com</code> <button class="btn ghost sm" data-act="copyBot">複製</button></li><li>權限選「<b>查看所有活動詳細資料</b>」（大家看得到行程標題）或「<b>只能查看可用時段（隱藏詳細資訊）</b>」（只顯示忙碌）→ 傳送</li><li>在下面填你的 Google 日曆帳號 Email，按「檢查」</li></ol>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><label class="field" style="flex:1 1 240px"><span>我的 Google 日曆帳號</span><input type="text" inputmode="email" autocomplete="off" data-mfield="calendarId" data-id="'+esc(my.id)+'" value="'+esc(my.calendarId||'')+'" placeholder="'+esc(my.email||'name@gmail.com')+'"></label><button class="btn" data-act="calCheck">檢查</button></div>'+
+      (st==='not_shared'?'<div class="banner" style="margin:0">讀不到 <b>'+esc(my.calendarId||'')+'</b>：請確認第 3、4 步已經按「傳送」，Email 也和日曆帳號一樣。</div>':st==='busy'?'<div class="hint">✓ 已連接，大家只會看到你「忙碌」的時段。想讓大家看到標題，把權限改成「查看所有活動詳細資料」。</div>':st==='full'?'<div class="hint">✓ 已連接，會顯示行程標題。想改成只顯示忙碌，把權限改成「只能查看可用時段」。</div>':'')+'</div>');
+  }
   h+=panel('成員',ms.length+' 人','<div class="tbl-wrap"><table><thead><tr><th>頭貼</th><th>姓名</th><th>職稱</th><th>部門</th><th>身分</th><th>權限</th><th>狀態</th><th>登入 Email</th><th>帳號</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+(adm?'<form class="row" data-form="member" style="flex-wrap:wrap"><input type="text" name="name" id="m-name" placeholder="新成員姓名" required style="flex:2 1 140px"><input type="text" name="role" id="m-role" placeholder="職稱" style="flex:2 1 120px"><input type="text" inputmode="email" name="email" id="m-email" placeholder="登入用的 Google Email" style="flex:3 1 200px"><select name="dept" id="m-dept" style="flex:1 1 100px">'+ds.map(d=>'<option value="'+esc(d.id)+'">'+esc(d.name)+'</option>').join('')+'</select><select name="kind" id="m-kind" style="flex:1 1 80px">'+KINDS.map(k=>'<option '+(k==='正職'?'selected':'')+'>'+k+'</option>').join('')+'</select><button class="btn" type="submit">新增成員</button></form>':'')+'<div class="legend"><span><b>管理者</b>（身分為主管）：看全貌、編輯所有結構</span><span><b>部門主管</b>：編輯自己部門的專案與任務</span><span><b>一般夥伴</b>：更新自己負責任務的狀態、進度、下一步與留言</span><span>點頭貼可以換照片</span><span>「委外」只看得到自己參與的專案；這是畫面篩選，不是權限隔離</span></div>',{wide:true});
   h+=panel('部門',ds.length+' 個',ds.map(d=>'<div class="row"><span class="dept-dot" style="background:'+esc(d.color)+'"></span><div class="main"><input type="text" aria-label="部門名稱" data-dfield="name" data-id="'+esc(d.id)+'" value="'+esc(d.name)+'" '+dis+'></div><label class="sub" style="white-space:nowrap">主管</label><select aria-label="部門主管" data-dfield="head" data-id="'+esc(d.id)+'" style="width:130px" '+dis+'>'+memberOptions(d.head)+'</select></div>').join(''));
   const tpls=Object.values(S.templates).sort((a,b)=>(a.source||'').localeCompare(b.source||'','zh-Hant',{numeric:true}));
@@ -1535,6 +1567,8 @@ document.addEventListener('click',async e=>{
     case 'reschedule':reschedule(S.projectId);break;
     case 'addWp':{const p=S.projects[S.projectId];const wps=projTasks(p.id).filter(t=>t.phase).map(t=>Number(t.code)).filter(n=>!isNaN(n));const code=String((wps.length?Math.max(...wps):0)+1);await W(S.db.collection('tasks').add({projectId:p.id,dept:p.dept,code,title:'新工作包 '+code,phase:true,status:'todo',order:Object.keys(S.tasks).length,createdAt:nowISO(),updatedAt:nowISO()}),'已新增工作包 '+code+'，點任務名稱可改名');break}
     case 'dep':{const t=S.tasks[id];if(!t)break;const set=new Set(t.deps||[]);if(a.checked){if(set.size>=3){a.checked=false;toast('前置任務最多 3 個');break}set.add(a.dataset.d)}else set.delete(a.dataset.d);await W(S.db.doc('tasks/'+id).update({deps:[...set],updatedAt:nowISO()}));reschedule(t.projectId,true);break}
+    case 'calCheck':{const el=document.querySelector('[data-mfield=calendarId]');if(el&&el.value.trim()!==(me()?.calendarId||'')){el.dispatchEvent(new Event('change',{bubbles:true}));setTimeout(()=>loadMemberCals(S.date0,true),800)}else loadMemberCals(S.date0,true);toast('檢查中…');break}
+    case 'copyBot':navigator.clipboard&&navigator.clipboard.writeText('vwsi-bot@vwsi-dashboard.iam.gserviceaccount.com').then(()=>toast('已複製'));break;
     case 'logout':S.sb.auth.signOut().then(()=>location.reload());break;
     case 'pickAvatar':S.avatarFor=id;document.getElementById('avatarFile').click();break;
     case 'claim':{const m=S.members[id];if(!m||!S.uid)break;if(me()){toast('你已經綁定身分了');break}await W(S.db.doc('members/'+id).update({uid:S.uid}),'歡迎，'+m.name);break}
