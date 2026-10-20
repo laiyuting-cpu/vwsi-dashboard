@@ -301,6 +301,19 @@ input[type=range]{width:100%;accent-color:var(--green)}
 .td .sub2{font-size:11px;color:var(--ink-3)}
 .wk .add{border:0;background:transparent;color:var(--ink-3);padding:6px;border-radius:6px;font-size:13px;text-align:center}
 .wk .add:hover{background:var(--surface-2);color:var(--ink)}
+.wk.v{grid-template-columns:1fr;min-height:0;overflow:visible}
+.wk.v .col{flex-direction:row;border-left:0;border-top:1px solid var(--line)}
+.wk.v .col:first-child{border-top:0}
+.wk.v .col.today{background:color-mix(in srgb,var(--blue-soft) 45%,transparent)}
+.wk.v .dh{flex:0 0 92px;padding:12px 10px 12px 14px;border-right:1px solid var(--line);flex-direction:row;align-items:center;gap:8px}
+.wk.v .dh .n{order:-1;font-size:17px;width:32px;height:32px}
+.wk.v .dh .w{font-size:13px;color:var(--ink-2)}
+.wk.v .nodate .dh{flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;white-space:nowrap}
+.wk.v .add{align-self:start}
+.wk.v .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));align-content:start;gap:8px;padding:10px 12px}
+.wk.v .td{font-size:14px;padding:9px 10px}
+.wk.v .add{text-align:left;padding:8px 6px;border:1px dashed var(--line)}
+.wk.v #td-new{grid-column:1/-1}
 .tl-day{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px;padding:12px 14px;border-top:1px solid var(--surface-2)}
 .tl-day:first-child{border-top:0}
 .tl-day .dd{font-weight:700}
@@ -466,6 +479,10 @@ input[type=range]{width:100%;accent-color:var(--green)}
   .td{font-size:15px;padding:10px;cursor:default}
   .td .ctl button{font-size:15px;padding:2px 6px}
   .wk .add{text-align:left;padding:8px 4px;font-size:14px}
+  .wk.v .col{flex-direction:column}
+  .wk.v .dh{flex:none;border-right:0;padding:10px 12px 4px}
+  .wk.v .items{grid-template-columns:1fr;padding:4px 12px 10px}
+  .wk-mode{display:none}
   .mine-hint{display:none}
   /* gantt / tables */
   .gantt{grid-template-columns:120px minmax(0,1fr)}
@@ -1042,6 +1059,7 @@ function memberBuckets(mid){
   const ts=liveTasks().filter(t=>mine(t,mid)&&isOpen(t));const we=weekEnd(S.date0);
   return [['逾期',ts.filter(t=>t.due&&t.due<S.date0&&!PENDING.includes(t.status))],['本週',ts.filter(t=>t.due&&t.due>=S.date0&&t.due<=we&&!PENDING.includes(t.status))],['Pending',ts.filter(t=>PENDING.includes(t.status))],['之後',ts.filter(t=>!PENDING.includes(t.status)&&t.due&&t.due>we)],['沒有期限',ts.filter(t=>!t.due&&!PENDING.includes(t.status))]];
 }
+function wkVert(){if(S.wkV===undefined){let v=null;try{v=localStorage.getItem('jj-wkv')}catch(_){}S.wkV=v!=='0'}return S.wkV}
 function viewMine(){
   const m=me();
   if(!m)return '<div class="page-head"><h1>我的任務</h1></div><div class="panel">'+empty('先在上方選擇你是哪一位，這裡就會列出你的待辦與任務。')+'</div>';
@@ -1054,7 +1072,7 @@ function viewMine(){
     return h+g.map(([nm,l])=>panel('專案任務・'+nm,l.length+' 項',l.length?l.sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')).map(t=>taskRow(t,{noOwner:t.owner===who.id})).join(''):empty('沒有。'))).join('')+'</div>'}
   // week calendar (Sunday start)
   const base=S.mineWeek||S.date0;const d0=parseD(base);const sun=addDays(base,-d0.getDay());const days=[...Array(7)].map((_,i)=>addDays(sun,i));
-  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span></div>';
+  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<div class="tabs2 wk-mode" style="margin:0 0 0 10px">'+[[1,'直式'],[0,'橫式']].map(([v,l])=>'<button data-act="wkMode" data-v="'+v+'" aria-pressed="'+(wkVert()===!!v)+'">'+l+'</button>').join('')+'</div></div>';
   loadMemberCals(addDays(sun,1));loadCompanyRange(sun,addDays(sun,6));
   const projT=liveTasks().filter(t=>mine(t,who.id)&&t.due&&(isOpen(t)||t.due>=sun));
   const col=(day,label)=>{const isNo=day==='';const list=todosOn(who.id,day).map(x=>({...x,done:tdDoneOn(x,day)})).sort((a,b)=>(a.done-b.done)||(!!recOf(b)-!!recOf(a))||(a.createdAt||'').localeCompare(b.createdAt||''));const pt=isNo?[]:projT.filter(t=>t.due===day);
@@ -1069,7 +1087,7 @@ function viewMine(){
     c+=list.map(x=>S.tdEdit===x.id&&self?'<div class="td"><input type="text" id="td-edit" data-tdedit="'+esc(x.id)+'" value="'+esc(x.title)+'" maxlength="140" style="padding:4px 6px"></div>':'<div class="td'+(x.done?' done':'')+'" draggable="'+(self&&!recOf(x)?'true':'false')+'" data-todo="'+esc(x.id)+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+day+'" '+(x.done?'checked':'')+' '+(self?'':'disabled')+' aria-label="完成" style="margin-top:2px"><span class="tt" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+day+'" title="點一下看詳情" style="cursor:pointer">'+esc(x.title)+((recOf(x)||x.hours||(x.subs||[]).length||x.notes)?'<span class="meta2">'+(recOf(x)?'<span class="rec-tag">🔁 '+esc(recLabel(recOf(x),x.date))+'</span>':'')+(x.hours?'<span>⏱ '+x.hours+'h</span>':'')+((x.subs||[]).length?'<span>☑ '+x.subs.filter(z=>z.done).length+'/'+x.subs.length+'</span>':'')+(x.notes?'<span>📝</span>':'')+'</span>':'')+'</span>'+(self?'<span class="ctl">'+(day===S.date0&&!x.done?'<button data-act="tdToDm" data-id="'+esc(x.id)+'" title="排進今天的三件事">★</button>':'')+'<button data-act="tdDel" data-id="'+esc(x.id)+'" title="刪除" aria-label="刪除">✕</button></span>':'')+'</div>').join('');
     if(self)c+=S.tdAdd===day?'<input type="text" id="td-new" data-tdnew="'+day+'" placeholder="輸入後按 Enter" maxlength="140" style="padding:6px 8px;font-size:13px">':'<button class="add" data-act="tdAdd" data-day="'+day+'">＋ 新增待辦</button>';
     return c+'</div></div>'};
-  h+='<div class="wk">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+col('','無日期')+'</div>';
+  h+='<div class="wk'+(wkVert()?' v':'')+'">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+col('','無日期')+'</div>';
   return h;
 }
 
@@ -1608,6 +1626,7 @@ document.addEventListener('click',async e=>{
     case 'twToday':S.teamWeek=S.date0;render();break;
     case 'wkPrev':S.mineWeek=addDays(S.mineWeek||S.date0,-7);render();break;
     case 'wkNext':S.mineWeek=addDays(S.mineWeek||S.date0,7);render();break;
+    case 'wkMode':try{localStorage.setItem('jj-wkv',a.dataset.v)}catch(_){}S.wkV=a.dataset.v==='1';render();break;
     case 'wkToday':S.mineWeek=S.date0;render();break;
     case 'tdAdd':S.tdAdd=a.dataset.day;S.tdEdit=null;render();setTimeout(()=>document.getElementById('td-new')?.focus(),30);break;
     case 'tdEdit':S.tdEdit=id;S.tdAdd=null;render();setTimeout(()=>{const f=document.getElementById('td-edit');if(f){f.focus();f.select()}},30);break;
