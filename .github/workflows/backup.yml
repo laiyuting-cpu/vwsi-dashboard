@@ -1,0 +1,45 @@
+# 每天台灣時間凌晨 3:17 備份 Supabase 資料庫到 Google 共用雲端硬碟，保留 30 天。
+# 需要在 GitHub → Settings → Secrets and variables → Actions 設定三個 Secrets：
+#   SUPABASE_DB_URL     Supabase → Connect → Session pooler 的連線字串（含密碼）
+#   GDRIVE_SA_JSON      Google 服務帳號的 JSON 金鑰（整份貼上）
+#   GDRIVE_FOLDER_ID    共用雲端硬碟裡「備份」資料夾的 ID（網址最後那段）
+name: Daily backup
+on:
+  schedule:
+    - cron: '17 19 * * *'   # UTC 19:17 = 台灣 03:17
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install PostgreSQL 17 client and rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common curl
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+      - name: Dump database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          STAMP=$(TZ=Asia/Taipei date +%Y-%m-%d_%H%M)
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --schema=public --no-owner --no-privileges --format=custom --file="vwsi-$STAMP.dump"
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --schema=public --data-only --inserts --no-owner | gzip -9 > "vwsi-$STAMP.sql.gz"
+          ls -la vwsi-*
+          test -s "vwsi-$STAMP.dump"
+      - name: Upload to Google Drive and prune old backups
+        env:
+          RCLONE_CONFIG_GD_TYPE: drive
+          RCLONE_CONFIG_GD_SCOPE: drive
+          RCLONE_CONFIG_GD_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.GDRIVE_SA_JSON }}
+          RCLONE_CONFIG_GD_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          set -euo pipefail
+          rclone copy . gd: --include "vwsi-*" --drive-supports-all-drives
+          rclone delete gd: --min-age 30d --include "vwsi-*" --drive-supports-all-drives
+          rclone lsl gd: --include "vwsi-*" --drive-supports-all-drives | tail -5

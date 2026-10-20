@@ -1,0 +1,6 @@
+# 不要把資料匯出或任何金鑰放進公開儲存庫
+*.dump
+*.sql.gz
+seed*.sql
+.env*
+_e2e_*.html
