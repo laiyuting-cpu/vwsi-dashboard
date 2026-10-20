@@ -17,6 +17,7 @@ begin
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from anon', t);
     execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    execute format('grant select, insert, update, delete on public.%I to service_role', t);
   end loop;
 end $$;
 
@@ -118,7 +119,7 @@ begin
   get diagnostics n = row_count;
   if n = 0 then raise exception 'not_found_or_denied' using errcode = '42501'; end if;
 end $$;
-grant execute on function public.doc_patch(text, text, jsonb) to authenticated;
+grant execute on function public.doc_patch(text, text, jsonb) to authenticated, service_role;
 
 -- ---------- 權限規則 ----------
 do $$
