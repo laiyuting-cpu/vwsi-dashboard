@@ -16,4 +16,5 @@ jobs:
           set -euo pipefail
           CRON_SECRET=$(printf '%s' "$SUPABASE_ACCESS_TOKEN:vwsi-cron" | sha256sum | cut -c1-48)
           curl -sS -X POST "https://pratgdxlgwgjchkvnaum.supabase.co/functions/v1/followup" -H "x-cron-secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"diag":"calendar"}' > out.json
-          python3 -c "import json; d=json.load(open('out.json')); [print('::notice::'+json.dumps(x,ensure_ascii=False)) for x in d.get('calendars',[d])]"
+          echo "::notice::raw $(head -c 900 out.json | tr '\n' ' ')"
+          python3 -c "import json; d=json.load(open('out.json')); [print('::notice::'+json.dumps(x,ensure_ascii=False)) for x in d.get('calendars',[])]" || true
