@@ -1103,8 +1103,8 @@ function viewMine(){
     c+=span.map(t=>'<div class="td span" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">進行中・到 '+fmtD(t.due).split(' ')[0]+'</div></div></div>').join('');
     c+=ghost.map(t=>'<div class="td ghost" data-act="openTask" data-id="'+esc(t.id)+'" title="完成這一次後會自動建立"><div style="min-width:0;flex:1"><div class="tt">🔁 '+esc(t.title)+'</div><div class="sub2">預定・'+esc(recLabel(recOf(t),t.recBase||t.due))+'</div></div></div>').join('');
     c+=pt.map(t=>'<div class="td proj'+(t.status!=='done'&&t.due<S.date0?' over':'')+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">'+esc(S.projects[t.projectId]?.name||'')+'・到期</div></div></div>').join('');
-    c+=list.map(x=>S.tdEdit===x.id&&self?'<div class="td"><input type="text" id="td-edit" data-tdedit="'+esc(x.id)+'" value="'+esc(x.title)+'" maxlength="140" style="padding:4px 6px"></div>':'<div class="td'+(x.done?' done':'')+'" draggable="'+(self&&!recOf(x)?'true':'false')+'" data-todo="'+esc(x.id)+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+day+'" '+(x.done?'checked':'')+' '+(self?'':'disabled')+' aria-label="完成" style="margin-top:2px"><span class="tt" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+day+'" title="點一下看詳情" style="cursor:pointer">'+linkT(x.title)+((recOf(x)||x.hours||(x.subs||[]).length||x.notes)?'<span class="meta2">'+(recOf(x)?'<span class="rec-tag">🔁 '+esc(recLabel(recOf(x),x.date))+'</span>':'')+(x.hours?'<span>⏱ '+x.hours+'h</span>':'')+((x.subs||[]).length?'<span>☑ '+x.subs.filter(z=>z.done).length+'/'+x.subs.length+'</span>':'')+(x.notes?'<span>📝</span>':'')+'</span>':'')+'</span>'+(self?'<span class="ctl">'+(day===S.date0&&!x.done?'<button data-act="tdToDm" data-id="'+esc(x.id)+'" title="排進今天的三件事">★</button>':'')+'<button data-act="tdDel" data-id="'+esc(x.id)+'" title="刪除" aria-label="刪除">✕</button></span>':'')+'</div>').join('');
-    if(self)c+=S.tdAdd===day?'<input type="text" id="td-new" data-tdnew="'+day+'" placeholder="輸入後按 Enter" maxlength="140" style="padding:6px 8px;font-size:13px">':'<button class="add" data-act="tdAdd" data-day="'+day+'">＋ 新增待辦</button>';
+    c+=list.map(x=>S.tdEdit===x.id&&self?'<div class="td"><input type="text" id="td-edit" data-tdedit="'+esc(x.id)+'" value="'+esc(x.title)+'" maxlength="1000" style="padding:4px 6px"></div>':'<div class="td'+(x.done?' done':'')+'" draggable="'+(self&&!recOf(x)?'true':'false')+'" data-todo="'+esc(x.id)+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+day+'" '+(x.done?'checked':'')+' '+(self?'':'disabled')+' aria-label="完成" style="margin-top:2px"><span class="tt" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+day+'" title="點一下看詳情" style="cursor:pointer">'+linkT(x.title)+((recOf(x)||x.hours||(x.subs||[]).length||x.notes)?'<span class="meta2">'+(recOf(x)?'<span class="rec-tag">🔁 '+esc(recLabel(recOf(x),x.date))+'</span>':'')+(x.hours?'<span>⏱ '+x.hours+'h</span>':'')+((x.subs||[]).length?'<span>☑ '+x.subs.filter(z=>z.done).length+'/'+x.subs.length+'</span>':'')+(x.notes?'<span>📝</span>':'')+'</span>':'')+'</span>'+(self?'<span class="ctl">'+(day===S.date0&&!x.done?'<button data-act="tdToDm" data-id="'+esc(x.id)+'" title="排進今天的三件事">★</button>':'')+'<button data-act="tdDel" data-id="'+esc(x.id)+'" title="刪除" aria-label="刪除">✕</button></span>':'')+'</div>').join('');
+    if(self)c+=S.tdAdd===day?'<input type="text" id="td-new" data-tdnew="'+day+'" placeholder="輸入後按 Enter" maxlength="1000" style="padding:6px 8px;font-size:13px">':'<button class="add" data-act="tdAdd" data-day="'+day+'">＋ 新增待辦</button>';
     return c+'</div></div>'};
   h+='<div class="wk'+(wkCols()===1?' v':wkCols()<8?' g c'+wkCols():'')+'">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+col('','無日期')+'</div>';
   return h;
@@ -1158,7 +1158,7 @@ function teamMobTodos(ms,days,wd){
     h+='<div class="mc"><div class="mc-h">'+avatar(m)+'<span class="nm">'+esc(m.name)+'</span>'+(hr.total?'<span class="hsum'+(hr.total>HOURS_PER_DAY?' over':'')+'">'+hr.total+' 小時</span>':'')+'</div><div class="tcell">'+
       (dm.length?'<div class="hint">★ 三件事 '+dm.filter(x=>x.done).length+'/'+dm.length+'：'+esc(dm.map(x=>(x.done?'✓':'')+x.t).join('、'))+'</div>':'')+
       memberEvents(m.id,sel).map(e=>{const l=evLabel(e,sel);return '<div class="titem cal"><span>📅 '+esc(l.tm)+' '+esc(l.title)+'</span></div>'}).join('')+pt.map(t=>'<div class="titem proj'+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'"><span>'+esc(t.title)+'</span><span class="h">到期</span></div>').join('')+
-      td.map(x=>'<div class="titem'+(x.done?' done':'')+'" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+(typeof sel!=='undefined'?sel:d)+'"><span>'+(x.done?'✓ ':'')+(recOf(x)?'🔁 ':'')+esc(x.title)+'</span>'+(x.hours?'<span class="h">'+x.hours+'h</span>':'')+'</div>').join('')+
+      td.map(x=>'<div class="titem'+(x.done?' done':'')+'" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+(typeof sel!=='undefined'?sel:d)+'"><span>'+(x.done?'✓ ':'')+(recOf(x)?'🔁 ':'')+esc(plainT(x.title))+'</span>'+(x.hours?'<span class="h">'+x.hours+'h</span>':'')+'</div>').join('')+
       (!pt.length&&!td.length&&!dm.length&&!memberEvents(m.id,sel).length?'<span class="hint">這天沒有待辦</span>':'')+'</div></div>';
   }
   return h+'</div><div class="legend" style="padding-inline:0"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務到期</span><span>點一下看詳情，只有本人能編輯</span></div></div>';
@@ -1307,7 +1307,10 @@ function viewSettings(){
 
 /* ---------- rich text ---------- */
 function okUrl(u){u=String(u||'').trim();return /^https?:\/\/[^\s<>"']+$/i.test(u)?u:''}
-function linkT(t){return esc(t).replace(/https?:\/\/[^\s<>"']+/g,u=>{const raw=u.replace(/&amp;/g,'&');let sh=raw.replace(/^https?:\/\/(www\.)?/,'');if(sh.length>38)sh=sh.slice(0,36)+'…';return '<a class="tlink" href="'+u+'" target="_blank" rel="noopener" title="'+u+'">'+esc(sh)+'</a>'})}
+const LINK_RE=/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/g;
+function linkT(t){t=String(t||'');let out='',last=0,m;LINK_RE.lastIndex=0;while((m=LINK_RE.exec(t))){out+=esc(t.slice(last,m.index));const u=m[2]||m[3];let label=m[1];if(!label){label=u.replace(/^https?:\/\/(www\.)?/,'');if(label.length>38)label=label.slice(0,36)+'…'}out+='<a class="tlink" href="'+esc(u)+'" target="_blank" rel="noopener" title="'+esc(u)+'">'+esc(label)+'</a>';last=m.index+m[0].length}return out+esc(t.slice(last))}
+function plainT(t){return String(t||'').replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,'$1')}
+function linksOf(t){const r=[];let m;LINK_RE.lastIndex=0;while((m=LINK_RE.exec(String(t||''))))r.push({u:m[2]||m[3],l:m[1]||''});return r}
 function linkify(text){return esc(text).replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g,'<br>')}
 function cleanHtml(html){
   const t=document.createElement('template');t.innerHTML=String(html||'');
@@ -1334,6 +1337,10 @@ function saveRich(key){
   if(kind==='task'){const t=S.tasks[id];if(t&&(t.notesHtml||'')!==html){S.tasks[id]={...t,notesHtml:html};W(S.db.doc('tasks/'+id).update({notesHtml:html,updatedAt:nowISO()}))}}
 }
 document.addEventListener('paste',e=>{
+  const ti=e.target.closest&&e.target.closest('input[data-tdnew],input[data-tdedit],input[data-tdf="title"]');
+  if(ti){const u=okUrl((e.clipboardData.getData('text/plain')||'').trim());const a=ti.selectionStart,z=ti.selectionEnd;
+    if(u&&a!==z){e.preventDefault();const sel=ti.value.slice(a,z).replace(/[\[\]]/g,'');document.execCommand('insertText',false,'['+sel+']('+u+')')||ti.setRangeText('['+sel+']('+u+')',a,z,'end');}
+    return}
   const ed=e.target.closest&&e.target.closest('[data-rich][contenteditable="true"]');if(!ed)return;
   e.preventDefault();const cd=e.clipboardData;const txt=(cd.getData('text/plain')||'').trim();const sel=window.getSelection();
   if(okUrl(txt)&&sel&&!sel.isCollapsed){document.execCommand('createLink',false,okUrl(txt));fixLinks(ed);return}
@@ -1393,7 +1400,8 @@ function drawOverlay(soft){
     const m=me();const self=!!(m&&x.owner===m.id&&S.canWrite);const D=self?'':'disabled';const id=esc(x.id);const subs=x.subs||[];
     const ago=iso=>{if(!iso)return '';const d=Math.round((Date.now()-new Date(iso))/864e5);return d<=0?'今天':d+' 天前'};
     let b='';const xr=recOf(x);const dday=S.drawerDay||S.date0;const xdone=tdDoneOn(x,dday);const tre=recEditor('todo',id,xr,x.date||S.date0,D);
-    b+='<div style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" data-act="tdDone" data-id="'+id+'" data-day="'+dday+'" '+(xdone?'checked':'')+' '+D+' aria-label="完成'+(xr?'（'+esc(fmtD(dday))+' 這一次）':'')+'" title="'+(xr?'只勾 '+esc(fmtD(dday))+' 這一次':'完成')+'" style="margin-top:10px;width:20px;height:20px"><input type="text" class="drawer-title" id="tdx-title" data-tdf="title" data-id="'+id+'" value="'+esc(x.title)+'" '+D+' maxlength="140"></div>';
+    b+='<div style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" data-act="tdDone" data-id="'+id+'" data-day="'+dday+'" '+(xdone?'checked':'')+' '+D+' aria-label="完成'+(xr?'（'+esc(fmtD(dday))+' 這一次）':'')+'" title="'+(xr?'只勾 '+esc(fmtD(dday))+' 這一次':'完成')+'" style="margin-top:10px;width:20px;height:20px"><input type="text" class="drawer-title" id="tdx-title" data-tdf="title" data-id="'+id+'" value="'+esc(x.title)+'" '+D+' maxlength="1000"></div>';
+    {const ls=linksOf(x.title);if(ls.length)b+='<div class="hint" style="display:flex;flex-wrap:wrap;gap:6px 12px;margin:-4px 0 4px 30px">'+ls.map(o=>'<a class="tlink" href="'+esc(o.u)+'" target="_blank" rel="noopener">🔗 '+esc(o.l||o.u.replace(/^https?:\/\/(www\.)?/,'').slice(0,40))+'</a>').join('')+'</div>'}
     b+='<div class="form-grid">'+fld('負責人','<input type="text" value="'+esc(S.members[x.owner]?.name||'')+'" disabled>')+fld(xr?'從哪天開始':'日期','<input type="date" id="tdx-date" data-tdf="date" data-id="'+id+'" value="'+esc(x.date||'')+'" '+D+'>')+fld('重複',tre.sel,xr?'每天／每週要確認的事，設成例行就會自動出現':'')+fld('預估時數','<select id="tdx-hours" data-tdf="hours" data-id="'+id+'" '+D+'>'+[['','—'],['0.5','30 分鐘'],['1','1 小時'],['1.5','1.5 小時'],['2','2 小時'],['3','3 小時'],['4','4 小時（半天）'],['6','6 小時'],['8','8 小時（全天）']].map(([v,l])=>'<option value="'+v+'" '+(String(x.hours??'')===v?'selected':'')+'>'+l+'</option>').join('')+'</select>','會算進每日工時負荷')+'</div>'+tre.extra+(xr?'<div class="hint">✓ 打勾只會完成 '+esc(fmtD(dday))+' 這一次；最近 30 天完成 '+Object.keys(x.doneDates||{}).filter(k=>k>=addDays(S.date0,-30)).length+' 次</div>':'');
     b+=fld('描述／備註',richBlock('todo:'+x.id,x.notes||'',self));
     const dn=subs.filter(z=>z.done).length;
@@ -1659,7 +1667,7 @@ document.addEventListener('click',async e=>{
     case 'richEdit':{S.richEditing=a.dataset.k;S.richLink=null;drawOverlay();const ed=document.getElementById('rich-'+a.dataset.k);if(ed){ed.focus();const r=document.createRange();r.selectNodeContents(ed);r.collapse(false);const sl=window.getSelection();sl.removeAllRanges();sl.addRange(r)}break}
     case 'subDone':{const x=S.todos[id];if(!x)break;const subs=(x.subs||[]).map((z,i)=>i===Number(a.dataset.i)?{...z,done:a.checked}:z);S.todos[id]={...x,subs};W(S.db.doc('todos/'+id).update({subs}));drawOverlay();break}
     case 'subDel':{const x=S.todos[id];if(!x)break;const subs=(x.subs||[]).filter((_,i)=>i!==Number(a.dataset.i));S.todos[id]={...x,subs};W(S.db.doc('todos/'+id).update({subs}));drawOverlay();break}
-    case 'tdToDm':{const x=S.todos[id];if(x)addToDaily(x.title,{todoId:id,h:x.hours});break}
+    case 'tdToDm':{const x=S.todos[id];if(x)addToDaily(plainT(x.title),{todoId:id,h:x.hours});break}
     case 'tlMore':S.tlDays=(S.tlDays||30)+30;render();break;
     case 'reschedule':reschedule(S.projectId);break;
     case 'addWp':{const p=S.projects[S.projectId];const wps=projTasks(p.id).filter(t=>t.phase).map(t=>Number(t.code)).filter(n=>!isNaN(n));const code=String((wps.length?Math.max(...wps):0)+1);await W(S.db.collection('tasks').add({projectId:p.id,dept:p.dept,code,title:'新工作包 '+code,phase:true,status:'todo',order:Object.keys(S.tasks).length,createdAt:nowISO(),updatedAt:nowISO()}),'已新增工作包 '+code+'，點任務名稱可改名');break}
