@@ -38,6 +38,10 @@
         .subscribe(status => { if (status === 'SUBSCRIBED') listeners[tbl].forEach(l => l.resync()); });
     }
 
+    // 寫入成功後立刻更新本機畫面，不必等即時通知（App 模式或輸入框還在焦點時也會馬上出現）
+    function echo(tbl, payload) { (listeners[tbl] || []).forEach(l => { try { l.onChange(payload); } catch (_) {} }); }
+    function echoPatch(tbl, id, patch) { (listeners[tbl] || []).forEach(l => { try { l.patch(id, patch); } catch (_) {} }); }
+
     function docRef(tbl, id) {
       return {
         id,
@@ -49,14 +53,17 @@
         async set(obj) {
           const { error } = await sb.from(tbl).upsert({ id, data: clean(obj), updated_at: new Date().toISOString() });
           if (error) throw toErr(error);
+          echo(tbl, { eventType: 'UPDATE', new: { id, data: clean(obj) } });
         },
         async update(patch) {
           const { error } = await sb.rpc('doc_patch', { tbl, doc_id: id, patch: clean(patch) });
           if (error) throw toErr(error);
+          echoPatch(tbl, id, clean(patch));
         },
         async delete() {
           const { error } = await sb.from(tbl).delete().eq('id', id);
           if (error) throw toErr(error);
+          echo(tbl, { eventType: 'DELETE', old: { id } });
         }
       };
     }
@@ -94,6 +101,7 @@
           const id = genId();
           const { error } = await sb.from(tbl).insert({ id, data: clean(obj) });
           if (error) throw toErr(error);
+          echo(tbl, { eventType: 'INSERT', new: { id, data: clean(obj) } });
           return { id };
         },
         onSnapshot(cb, errCb) {
@@ -118,6 +126,7 @@
           const listener = {
             loaded: false,
             resync: () => { clearTimeout(timer); timer = setTimeout(resync, 150); },
+            patch(id, patch) { if (!map.has(id)) return; const d = Object.assign({}, map.get(id), patch); this.onChange({ eventType: 'UPDATE', new: { id, data: d } }); },
             onChange(p) {
               if (p.eventType === 'DELETE') {
                 const id = p.old && p.old.id;
