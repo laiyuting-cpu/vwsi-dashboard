@@ -7,7 +7,9 @@
 <title>職掘工作台</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<meta name="apple-mobile-web-app-title" content="職掘工作台">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 @font-face{font-family:"GenSen Rounded";src:url("fonts/gensen-R.woff2") format("woff2");font-weight:100 550;font-display:swap}
@@ -314,6 +316,19 @@ input[type=range]{width:100%;accent-color:var(--green)}
 .wk.v .td{font-size:14px;padding:9px 10px}
 .wk.v .add{text-align:left;padding:8px 6px;border:1px dashed var(--line)}
 .wk.v #td-new{grid-column:1/-1}
+.wk.g{gap:1px;background:var(--line);min-height:0;overflow:visible}
+.wk.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.wk.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.wk.g .col{border-left:0;background:var(--surface);min-height:190px}
+.wk.g .col.nodate{background:var(--surface-2)}
+.wk.g .col.today{background:color-mix(in srgb,var(--blue-soft) 45%,var(--surface))}
+.wk.g .col.drop{background:var(--blue-soft)}
+.wk.g .dh{flex-direction:row;align-items:center;gap:8px;padding:10px 12px 4px}
+.wk.g .dh .n{order:-1;font-size:17px;width:32px;height:32px}
+.wk.g .dh .w{font-size:13px;color:var(--ink-2)}
+.wk.g .items{padding:4px 10px 10px}
+.wk.g .td{font-size:14px}
+a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
 .tl-day{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px;padding:12px 14px;border-top:1px solid var(--surface-2)}
 .tl-day:first-child{border-top:0}
 .tl-day .dd{font-weight:700}
@@ -482,7 +497,10 @@ input[type=range]{width:100%;accent-color:var(--green)}
   .wk.v .col{flex-direction:column}
   .wk.v .dh{flex:none;border-right:0;padding:10px 12px 4px}
   .wk.v .items{grid-template-columns:1fr;padding:4px 12px 10px}
-  .wk-mode{display:none}
+  .wk-mode{display:none!important}
+  .wk.g{grid-template-columns:1fr;gap:0;background:var(--surface)}
+  .wk.g .col{min-height:0;border-top:1px solid var(--line)}
+  .wk.g .col:first-child{border-top:0}
   .mine-hint{display:none}
   /* gantt / tables */
   .gantt{grid-template-columns:120px minmax(0,1fr)}
@@ -554,7 +572,6 @@ input[type=range]{width:100%;accent-color:var(--green)}
   <a href="#team" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.5c2.4.2 4 1.8 4.5 4.5"/></svg>團隊<small>每日待辦・每週工時</small></a>
   <a href="#manuals" data-view="manuals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M5 17a3 3 0 013-3h11"/></svg>夥伴說明書</a>
   <a href="#year" data-view="year"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>年度回顧</a>
-  <a href="#settings" data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>設定</a>
 </div></div>
 <div id="overlay"></div>
 <div id="toastHost"></div>
@@ -722,6 +739,7 @@ let composing=false;document.addEventListener('compositionstart',()=>{composing=
 function ready(){return S.loaded.members&&S.loaded.depts&&S.loaded.projects&&S.loaded.tasks}
 
 function draw(){
+  if(S.view==='settings'&&matchMedia('(max-width:760px)').matches){S.view='overview';history.replaceState(null,'',location.pathname+'#overview')}
   document.querySelectorAll('#tabs a,#bnav a,#bsheet a').forEach(a=>a.setAttribute('aria-current',a.dataset.view===S.view?'page':'false'));
   {const bm=document.getElementById('bmore');if(bm)bm.setAttribute('aria-current',['team','manuals','year','settings'].includes(S.view)?'page':'false')}
   drawWho();
@@ -859,7 +877,7 @@ function routineSec(m,d,items){
   if(!tds.length&&!pts.length)return '<div class="mine-sec"><h3>📋 '+(d===S.date0?'今天':'這天')+'的例行與待辦</h3><span class="hint">沒有排定的事。到「我的任務」新增待辦，或把每天要確認的事設成「重複」，就會自動出現在這裡。</span></div>';
   const star=(kind,id)=>'<button class="star" data-act="rtToDm" data-kind="'+kind+'" data-id="'+esc(id)+'" '+(inDm.has(id)?'disabled':'')+'>'+(inDm.has(id)?'已在三件事':'★ 放進三件事')+'</button>';
   let h='<div class="mine-sec"><h3>📋 '+(d===S.date0?'今天':'這天')+'的例行與待辦 <span class="hint" style="font-weight:400">和「我的任務」同步</span></h3><div>';
-  h+=tds.map(x=>{const dn=tdDoneOn(x,d);const r=recOf(x);return '<div class="rt-row'+(dn?' done':'')+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+d+'" '+(dn?'checked':'')+' aria-label="完成"><span class="k '+(r?'k-rt':'k-td')+'">'+(r?'🔁 例行':'待辦')+'</span><span class="t" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+d+'">'+esc(x.title)+(x.hours?' <span class="hint mono">'+x.hours+'h</span>':'')+'</span>'+(dn?'':star('todo',x.id))+'</div>'}).join('');
+  h+=tds.map(x=>{const dn=tdDoneOn(x,d);const r=recOf(x);return '<div class="rt-row'+(dn?' done':'')+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+d+'" '+(dn?'checked':'')+' aria-label="完成"><span class="k '+(r?'k-rt':'k-td')+'">'+(r?'🔁 例行':'待辦')+'</span><span class="t" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+d+'">'+linkT(x.title)+(x.hours?' <span class="hint mono">'+x.hours+'h</span>':'')+'</span>'+(dn?'':star('todo',x.id))+'</div>'}).join('');
   h+=pts.map(t=>{const lbl=t.due<d?'逾期':t.due===d?'今天到期':'進行中・到 '+fmtD(t.due).split(' ')[0];return '<div class="rt-row"><span style="width:16px"></span><span class="k k-pj">'+(recOf(t)?'🔁 ':'')+lbl+'</span><span class="t" data-act="openTask" data-id="'+esc(t.id)+'">'+esc(t.title)+' <span class="hint">'+esc(S.projects[t.projectId]?.name||'')+'</span></span>'+star('task',t.id)+'</div>'}).join('');
   return h+'</div></div>';
 }
@@ -1059,7 +1077,8 @@ function memberBuckets(mid){
   const ts=liveTasks().filter(t=>mine(t,mid)&&isOpen(t));const we=weekEnd(S.date0);
   return [['逾期',ts.filter(t=>t.due&&t.due<S.date0&&!PENDING.includes(t.status))],['本週',ts.filter(t=>t.due&&t.due>=S.date0&&t.due<=we&&!PENDING.includes(t.status))],['Pending',ts.filter(t=>PENDING.includes(t.status))],['之後',ts.filter(t=>!PENDING.includes(t.status)&&t.due&&t.due>we)],['沒有期限',ts.filter(t=>!t.due&&!PENDING.includes(t.status))]];
 }
-function wkVert(){if(S.wkV===undefined){let v=null;try{v=localStorage.getItem('jj-wkv')}catch(_){}S.wkV=v!=='0'}return S.wkV}
+function wkCols(){if(S.wkCols===undefined){let v=null,o=null;try{v=localStorage.getItem('jj-wkcols');o=localStorage.getItem('jj-wkv')}catch(_){}v=Number(v);S.wkCols=[1,2,4,8].includes(v)?v:(o==='0'?8:1)}return S.wkCols}
+const WK_LAYOUTS=[[1,'1 欄 × 8 列（直式）'],[2,'2 欄 × 4 列'],[4,'4 欄 × 2 列（週計畫）'],[8,'8 欄 × 1 列（橫式）']];
 function viewMine(){
   const m=me();
   if(!m)return '<div class="page-head"><h1>我的任務</h1></div><div class="panel">'+empty('先在上方選擇你是哪一位，這裡就會列出你的待辦與任務。')+'</div>';
@@ -1068,11 +1087,11 @@ function viewMine(){
   let h='<div class="page-head"><div><div class="eyebrow">'+(self?'只有你能編輯自己的待辦，主管可以檢視':'檢視中')+'</div><h1>'+(self?'我的任務':esc(who.name)+' 的任務')+'</h1></div><div class="toolbar">'+(isAdmin()?'<select id="mineWho" data-act="mineWho" style="width:auto" aria-label="檢視誰的任務">'+activeMembers().map(x=>'<option value="'+esc(x.id)+'" '+(x.id===who.id?'selected':'')+'>'+esc(x.name)+(x.id===m.id?'（我）':'')+'</option>').join('')+'</select>':'')+'</div></div>';
   h+='<div class="tabs2">'+[['cal','行事曆'],['list','清單']].map(([k,l])=>'<button data-act="mtab" data-v="'+k+'" aria-pressed="'+(tab===k)+'">'+l+'</button>').join('')+'</div>';
   if(tab==='list'){const g=memberBuckets(who.id);const todos=Object.values(S.todos).filter(x=>x.owner===who.id&&(recOf(x)||!x.done)).sort((a,b)=>(!!recOf(b)-!!recOf(a))||(a.date||'9').localeCompare(b.date||'9'));
-    h+='<div class="grid">'+panel('我的待辦',todos.length+' 項',todos.length?todos.map(x=>(recOf(x)?'<div class="row click" data-act="tdOpen" data-id="'+esc(x.id)+'"><span class="rec-tag">🔁</span><div class="main"><div class="t">'+esc(x.title)+'</div><div class="meta"><span>'+esc(recLabel(recOf(x),x.date))+'</span></div></div></div>':'<div class="row"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" '+(self?'':'disabled')+' aria-label="完成"><div class="main"><div class="t" data-act="tdOpen" data-id="'+esc(x.id)+'" style="cursor:pointer">'+esc(x.title)+'</div></div><span class="due">'+(x.date?fmtD(x.date):'無日期')+'</span></div>')).join(''):empty('沒有待辦。到「行事曆」分頁新增。'));
+    h+='<div class="grid">'+panel('我的待辦',todos.length+' 項',todos.length?todos.map(x=>(recOf(x)?'<div class="row click" data-act="tdOpen" data-id="'+esc(x.id)+'"><span class="rec-tag">🔁</span><div class="main"><div class="t">'+esc(x.title)+'</div><div class="meta"><span>'+esc(recLabel(recOf(x),x.date))+'</span></div></div></div>':'<div class="row"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" '+(self?'':'disabled')+' aria-label="完成"><div class="main"><div class="t" data-act="tdOpen" data-id="'+esc(x.id)+'" style="cursor:pointer">'+linkT(x.title)+'</div></div><span class="due">'+(x.date?fmtD(x.date):'無日期')+'</span></div>')).join(''):empty('沒有待辦。到「行事曆」分頁新增。'));
     return h+g.map(([nm,l])=>panel('專案任務・'+nm,l.length+' 項',l.length?l.sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')).map(t=>taskRow(t,{noOwner:t.owner===who.id})).join(''):empty('沒有。'))).join('')+'</div>'}
   // week calendar (Sunday start)
   const base=S.mineWeek||S.date0;const d0=parseD(base);const sun=addDays(base,-d0.getDay());const days=[...Array(7)].map((_,i)=>addDays(sun,i));
-  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<div class="tabs2 wk-mode" style="margin:0 0 0 10px">'+[[1,'直式'],[0,'橫式']].map(([v,l])=>'<button data-act="wkMode" data-v="'+v+'" aria-pressed="'+(wkVert()===!!v)+'">'+l+'</button>').join('')+'</div></div>';
+  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<label class="wk-mode" style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">版面</span><select data-act="wkCols" style="width:auto" aria-label="版面欄列數">'+WK_LAYOUTS.map(([v,l])=>'<option value="'+v+'" '+(wkCols()===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
   loadMemberCals(addDays(sun,1));loadCompanyRange(sun,addDays(sun,6));
   const projT=liveTasks().filter(t=>mine(t,who.id)&&t.due&&(isOpen(t)||t.due>=sun));
   const col=(day,label)=>{const isNo=day==='';const list=todosOn(who.id,day).map(x=>({...x,done:tdDoneOn(x,day)})).sort((a,b)=>(a.done-b.done)||(!!recOf(b)-!!recOf(a))||(a.createdAt||'').localeCompare(b.createdAt||''));const pt=isNo?[]:projT.filter(t=>t.due===day);
@@ -1084,10 +1103,10 @@ function viewMine(){
     c+=span.map(t=>'<div class="td span" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">進行中・到 '+fmtD(t.due).split(' ')[0]+'</div></div></div>').join('');
     c+=ghost.map(t=>'<div class="td ghost" data-act="openTask" data-id="'+esc(t.id)+'" title="完成這一次後會自動建立"><div style="min-width:0;flex:1"><div class="tt">🔁 '+esc(t.title)+'</div><div class="sub2">預定・'+esc(recLabel(recOf(t),t.recBase||t.due))+'</div></div></div>').join('');
     c+=pt.map(t=>'<div class="td proj'+(t.status!=='done'&&t.due<S.date0?' over':'')+(t.status==='done'?' done':'')+'" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">'+esc(S.projects[t.projectId]?.name||'')+'・到期</div></div></div>').join('');
-    c+=list.map(x=>S.tdEdit===x.id&&self?'<div class="td"><input type="text" id="td-edit" data-tdedit="'+esc(x.id)+'" value="'+esc(x.title)+'" maxlength="140" style="padding:4px 6px"></div>':'<div class="td'+(x.done?' done':'')+'" draggable="'+(self&&!recOf(x)?'true':'false')+'" data-todo="'+esc(x.id)+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+day+'" '+(x.done?'checked':'')+' '+(self?'':'disabled')+' aria-label="完成" style="margin-top:2px"><span class="tt" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+day+'" title="點一下看詳情" style="cursor:pointer">'+esc(x.title)+((recOf(x)||x.hours||(x.subs||[]).length||x.notes)?'<span class="meta2">'+(recOf(x)?'<span class="rec-tag">🔁 '+esc(recLabel(recOf(x),x.date))+'</span>':'')+(x.hours?'<span>⏱ '+x.hours+'h</span>':'')+((x.subs||[]).length?'<span>☑ '+x.subs.filter(z=>z.done).length+'/'+x.subs.length+'</span>':'')+(x.notes?'<span>📝</span>':'')+'</span>':'')+'</span>'+(self?'<span class="ctl">'+(day===S.date0&&!x.done?'<button data-act="tdToDm" data-id="'+esc(x.id)+'" title="排進今天的三件事">★</button>':'')+'<button data-act="tdDel" data-id="'+esc(x.id)+'" title="刪除" aria-label="刪除">✕</button></span>':'')+'</div>').join('');
+    c+=list.map(x=>S.tdEdit===x.id&&self?'<div class="td"><input type="text" id="td-edit" data-tdedit="'+esc(x.id)+'" value="'+esc(x.title)+'" maxlength="140" style="padding:4px 6px"></div>':'<div class="td'+(x.done?' done':'')+'" draggable="'+(self&&!recOf(x)?'true':'false')+'" data-todo="'+esc(x.id)+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+day+'" '+(x.done?'checked':'')+' '+(self?'':'disabled')+' aria-label="完成" style="margin-top:2px"><span class="tt" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+day+'" title="點一下看詳情" style="cursor:pointer">'+linkT(x.title)+((recOf(x)||x.hours||(x.subs||[]).length||x.notes)?'<span class="meta2">'+(recOf(x)?'<span class="rec-tag">🔁 '+esc(recLabel(recOf(x),x.date))+'</span>':'')+(x.hours?'<span>⏱ '+x.hours+'h</span>':'')+((x.subs||[]).length?'<span>☑ '+x.subs.filter(z=>z.done).length+'/'+x.subs.length+'</span>':'')+(x.notes?'<span>📝</span>':'')+'</span>':'')+'</span>'+(self?'<span class="ctl">'+(day===S.date0&&!x.done?'<button data-act="tdToDm" data-id="'+esc(x.id)+'" title="排進今天的三件事">★</button>':'')+'<button data-act="tdDel" data-id="'+esc(x.id)+'" title="刪除" aria-label="刪除">✕</button></span>':'')+'</div>').join('');
     if(self)c+=S.tdAdd===day?'<input type="text" id="td-new" data-tdnew="'+day+'" placeholder="輸入後按 Enter" maxlength="140" style="padding:6px 8px;font-size:13px">':'<button class="add" data-act="tdAdd" data-day="'+day+'">＋ 新增待辦</button>';
     return c+'</div></div>'};
-  h+='<div class="wk'+(wkVert()?' v':'')+'">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+col('','無日期')+'</div>';
+  h+='<div class="wk'+(wkCols()===1?' v':wkCols()<8?' g c'+wkCols():'')+'">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+col('','無日期')+'</div>';
   return h;
 }
 
@@ -1282,13 +1301,13 @@ function viewSettings(){
   const tpls=Object.values(S.templates).sort((a,b)=>(a.source||'').localeCompare(b.source||'','zh-Hant',{numeric:true}));
   h+=panel('WBS 專案範本',tpls.length+' 份',tpls.length?tpls.map(t=>'<div class="row"><span class="dept-dot" style="background:'+esc(deptOf(t.dept).color)+'"></span><div class="main"><div class="t">'+esc(t.name)+'</div><div class="meta"><span>'+t.tasks.length+' 項</span><span>'+(t.timed?'依「'+esc(t.anchorLabel)+'」回推期限':'流程型，期限自行填')+'</span><span>來源：'+esc(t.source||'')+'</span></div></div></div>').join(''):empty('範本載入中…'));
   const chOf=o=>o.slackChannelName?'#'+esc(o.slackChannelName):'未設定';
-  h+=panel('Slack 通知','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:6px"><p style="margin:0"><b>發到專案頻道</b>：任務插隊、等待主管決策、Pending 到追蹤日（沒有指定專案頻道 → 部門預設頻道 → #general）。<br><b>私訊</b>：Daily Mission 插隊、被指派新任務、每個工作日 09:07 的「今天到期與逾期」清單。<br>部門前綴對應 Slack 頻道名稱開頭的字母（例如 <code>b-社群經營</code> → 品牌行銷部），用來分類頻道清單與「從 Slack 頻道建立專案」。私人頻道要先輸入 /invite @職掘工作台。</p></div><div class="tbl-wrap"><table><thead><tr><th>部門</th><th>前綴</th><th colspan="2">預設頻道（專案沒指定頻道時用）'+(S.slackCh&&S.slackCh.list&&S.slackCh.list.length?' <span class="hint" style="font-weight:400">機器人看得到 '+S.slackCh.list.length+' 個頻道，其中私人 '+S.slackCh.list.filter(c=>c.private).length+' 個</span>':'')+' <button class="btn ghost sm" data-act="chReload" type="button">重新整理頻道清單</button></th></tr></thead><tbody>'+ds.map(d=>'<tr><td>'+esc(d.name)+'</td><td><input type="text" aria-label="頻道前綴" data-sfield="depts" data-k="slackPrefix" data-id="'+esc(d.id)+'" value="'+esc(d.slackPrefix||'')+'" '+dis+' class="mono" style="width:56px" maxlength="2" placeholder="—"></td><td colspan="2">'+deptChSelect(d,dis)+'</td></tr>').join('')+'</tbody></table></div><div class="tbl-wrap"><table><thead><tr><th>成員</th><th>Slack 使用者 ID</th></tr></thead><tbody>'+ms.filter(m=>m.active!==false).map(m=>'<tr><td>'+chip(m.id)+'</td><td><input type="text" aria-label="Slack ID" data-sfield="members" data-k="slackId" data-id="'+esc(m.id)+'" value="'+esc(m.slackId||'')+'" '+((adm||(my&&my.id===m.id))&&S.canWrite?'':'disabled')+' placeholder="例如 U01ABCDE" class="mono"></td></tr>').join('')+'</tbody></table></div>',{wide:true});
-  h+=panel('連接的工具','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:8px"><p style="margin:0"><b>公司行事曆</b>：總覽和 Daily Mission 會顯示 '+esc(COMPANY_CAL)+' 的行程（由服務帳號 vwsi-bot 讀取）。</p><p style="margin:0"><b>Google 雲端硬碟</b>：在任務裡搜尋並附上 Drive 檔案。</p><p style="margin:0"><b>Slack</b>：插隊與決策通知由「職掘工作台」機器人發送，見上方設定。</p></div>');
+  h+=panel('連接的工具','','<div class="panel-b pad sub" style="display:flex;flex-direction:column;gap:8px"><p style="margin:0"><b>公司行事曆</b>：總覽和 Daily Mission 會顯示 '+esc(COMPANY_CAL)+' 的行程（由服務帳號 vwsi-bot 讀取）。</p><p style="margin:0"><b>Google 雲端硬碟</b>：在任務裡搜尋並附上 Drive 檔案。</p><p style="margin:0"><b>Slack</b>：插隊、指派與決策通知由「職掘工作台」機器人發送。</p></div>');
   return h+'</div>';
 }
 
 /* ---------- rich text ---------- */
 function okUrl(u){u=String(u||'').trim();return /^https?:\/\/[^\s<>"']+$/i.test(u)?u:''}
+function linkT(t){return esc(t).replace(/https?:\/\/[^\s<>"']+/g,u=>{const raw=u.replace(/&amp;/g,'&');let sh=raw.replace(/^https?:\/\/(www\.)?/,'');if(sh.length>38)sh=sh.slice(0,36)+'…';return '<a class="tlink" href="'+u+'" target="_blank" rel="noopener" title="'+u+'">'+esc(sh)+'</a>'})}
 function linkify(text){return esc(text).replace(/(https?:\/\/[^\s<>"']+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g,'<br>')}
 function cleanHtml(html){
   const t=document.createElement('template');t.innerHTML=String(html||'');
@@ -1411,10 +1430,10 @@ function drawOverlay(soft){
   }
   if(S.modal==='slackImport'){
     const L=(S.slackCh&&S.slackCh.list)||[];const mapped=new Set(Object.values(S.projects).map(p=>p.slackChannel).filter(Boolean));const ds=Object.values(S.depts).sort((a,b)=>(a.order??0)-(b.order??0)).filter(d=>d.slackPrefix);
-    let b='<h2>從 Slack 頻道建立專案</h2><p class="sub" style="margin:0">依頻道名稱開頭的字母對應部門（在「設定 → Slack 通知」設定前綴）。已經對應到專案的頻道、沒有部門前綴的頻道不會列出。</p>';
+    let b='<h2>從 Slack 頻道建立專案</h2><p class="sub" style="margin:0">依頻道名稱開頭的字母對應部門。已經對應到專案的頻道、沒有部門前綴的頻道不會列出。</p>';
     if(S.slackCh&&S.slackCh.loading&&!L.length)b+='<div class="empty">讀取 Slack 頻道中…</div>';
     else if(S.slackCh&&S.slackCh.error)b+='<div class="banner" style="margin:0">'+(S.slackCh.error==='missing_scope'?'機器人還沒有讀取頻道清單的權限：請到 Slack App 加入 <b>channels:read</b>、<b>groups:read</b> 後重新安裝。':'讀不到 Slack 頻道清單（'+esc(S.slackCh.error)+'）。')+'</div>';
-    else if(!ds.length)b+='<div class="banner" style="margin:0">還沒有設定部門前綴。到「設定 → Slack 通知」幫每個部門填前綴（例如品牌行銷部填 b）。</div>';
+    else if(!ds.length)b+='<div class="banner" style="margin:0">還沒有設定部門前綴。請管理員幫每個部門設定頻道前綴（例如品牌行銷部填 b）。</div>';
     else{let n=0;b+='<label class="inline"><input type="checkbox" data-act="impAll" checked> 全選</label><div style="display:flex;flex-direction:column;gap:12px;max-height:50vh;overflow:auto">'+ds.map(d=>{const cs=L.filter(c=>chPrefix(c.name)===d.slackPrefix.toLowerCase()&&!mapped.has(c.id));n+=cs.length;return cs.length?'<div><div class="eyebrow" style="margin-bottom:4px"><span class="dept-dot" style="background:'+esc(d.color)+'"></span> '+esc(d.name)+'（'+esc(d.slackPrefix)+'-）</div>'+cs.map(c=>'<label class="inline" style="display:flex;padding:3px 0"><input type="checkbox" name="imp" value="'+esc(c.id)+'" data-dept="'+esc(d.id)+'" data-name="'+esc(c.name)+'" checked> #'+esc(c.name)+(c.private?' 🔒':'')+'</label>').join('')+'</div>':''}).join('')+'</div>';if(!n)b+='<div class="empty">所有有部門前綴的頻道都已經有專案了。</div>'}
     host.innerHTML='<div class="scrim" data-act="close"></div><form class="modal" data-form="slackImport" role="dialog" aria-label="從 Slack 頻道建立專案">'+b+'<div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn ghost" data-act="chReload">重新整理清單</button><span style="flex:1"></span><button type="button" class="btn" data-act="close">取消</button><button class="btn primary" type="submit">建立勾選的專案</button></div></form>';
     return;
@@ -1495,7 +1514,7 @@ async function slackSend(channel,text){
     if(error){let code='';try{code=(await error.context.json()).error}catch(_){}throw Object.assign(new Error(error.message),{code})}
     if(data&&data.ok)return true;throw Object.assign(new Error('slack'),{code:data&&data.error})}
   catch(e){console.warn(e);const c=e&&e.code;
-    toast(c==='not_in_channel'?'Slack 通知沒送出：請在這個頻道輸入 /invite @職掘工作台':c==='channel_not_found'?'Slack 通知沒送出：頻道 ID 不正確，請到「設定」檢查':c==='channel_not_allowed'?'Slack 通知沒送出：這個頻道不在部門／專案設定裡':c==='missing_token'?'Slack 通知沒送出：Supabase 還沒設定機器人金鑰':'Slack 通知沒送出，請稍後再試');return false}
+    toast(c==='not_in_channel'?'Slack 通知沒送出：請在這個頻道輸入 /invite @職掘工作台':c==='channel_not_found'?'Slack 通知沒送出：頻道 ID 不正確，請通知管理員檢查':c==='channel_not_allowed'?'Slack 通知沒送出：這個頻道不在部門／專案設定裡':c==='missing_token'?'Slack 通知沒送出：Supabase 還沒設定機器人金鑰':'Slack 通知沒送出，請稍後再試');return false}
 }
 function slackCut(target,text){
   const m=me();
@@ -1582,6 +1601,7 @@ async function addToDaily(text,link){const m=me();if(!m)return;const day=S.view=
 async function addToDaily_old(text){const m=me();if(!m)return;const key=S.date0+'_'+m.id;const cur=S.daily[key];const items=[0,1,2].map(i=>({t:'',done:false,h:1,taskId:'',...((cur?.items||[])[i]||{})}));const idx=items.findIndex(i=>!i.t);if(idx<0){toast('今天的三件事已經填滿了');return}items[idx].t=text;const body={date:S.date0,memberId:m.id,items,report:cur?.report||null,updatedAt:nowISO()};S.daily[key]=body;await W(S.db.doc('daily/'+key).set(body),'已排進今天的三件事（第 '+(idx+1)+' 件）')}
 /* ---------- events ---------- */
 document.addEventListener('click',async e=>{
+  if(e.target.closest('a.tlink'))return;
   const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act;const id=a.dataset.id;
   if(a.tagName==='INPUT'&&a.type==='checkbox'&&!['toggleDone','dmDone','hideDone','wtoggle','collab','dep','tdDone','subDone'].includes(act))return;
   if(act==='richEdit'&&e.target.closest('a'))return;
@@ -1626,7 +1646,6 @@ document.addEventListener('click',async e=>{
     case 'twToday':S.teamWeek=S.date0;render();break;
     case 'wkPrev':S.mineWeek=addDays(S.mineWeek||S.date0,-7);render();break;
     case 'wkNext':S.mineWeek=addDays(S.mineWeek||S.date0,7);render();break;
-    case 'wkMode':try{localStorage.setItem('jj-wkv',a.dataset.v)}catch(_){}S.wkV=a.dataset.v==='1';render();break;
     case 'wkToday':S.mineWeek=S.date0;render();break;
     case 'tdAdd':S.tdAdd=a.dataset.day;S.tdEdit=null;render();setTimeout(()=>document.getElementById('td-new')?.focus(),30);break;
     case 'tdEdit':S.tdEdit=id;S.tdAdd=null;render();setTimeout(()=>{const f=document.getElementById('td-edit');if(f){f.focus();f.select()}},30);break;
@@ -1672,6 +1691,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.rec){setRecPreset(el.dataset.rec,el.dataset.id,el.value);return}
   if(el.dataset.recf){setRecField(el.dataset.rkind,el.dataset.id,el.dataset.recf,el.value);return}
   if(el.dataset.act==='mineWho'){S.mineWho=el.value;render();return}
+  if(el.dataset.act==='wkCols'){S.wkCols=Number(el.value);try{localStorage.setItem('jj-wkcols',el.value)}catch(_){}render();return}
   if(el.dataset.act==='setWp'){const t=S.tasks[el.dataset.id];if(!t)return;const wp=el.value;const code=wp?wp+'.'+(projTasks(t.projectId).filter(x=>!x.phase&&wpOf(x)===wp&&x.id!==t.id).length+1):'';W(S.db.doc('tasks/'+t.id).update({code,updatedAt:nowISO()}));return}
   if(el.dataset.deptch){const id=el.dataset.deptch,v=el.value;W(S.db.doc('depts/'+id).update({slackChannel:v,slackChannelName:chName(v)||''}),'已更新部門預設頻道');return}
   if(el.dataset.sfield){const col=el.dataset.sfield;const [k,v]=[el.dataset.k,el.value.trim()];W(S.db.doc(col+'/'+el.dataset.id).update({[k]:v}),'已更新 Slack 設定');return}
