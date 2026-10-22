@@ -863,12 +863,14 @@ function viewDaily(){
   h+='<div class="strip"><span>已填寫 <b>'+filled+'</b>/'+ms.length+' 人</span><span>已下班回報 <b>'+reported+'</b> 人</span>'+(cuts?'<span style="border-color:var(--amber);color:var(--amber)">待處理插隊 <b>'+cuts+'</b></span>':'')+'</div>';
   h+='<div class="dm-top"><div>'+(m&&S.canWrite?myPanel(m,d):'<div class="panel">'+empty(m?'你目前只能檢視。':'先在上方選擇你是哪一位，就能填寫自己的三件事。')+'</div>')+'</div><aside style="display:flex;flex-direction:column;gap:14px">';
   if(S.sb){loadCompany();h+='<section class="panel"><div class="panel-h"><h2>公司行事曆</h2><span class="count">'+(isToday?'今天':fmtD(d))+'</span></div><div class="panel-b">'+companyList(1,d)+'</div></section>';if(m)h+='<section class="panel"><div class="panel-h"><h2>我的行事曆</h2>'+calStatusChip(m.id)+'</div>'+myCalBody(m,d)+'</section>'}
-  h+='<section class="panel"><div class="panel-b pad sub" style="font-size:13px">✍️ 用<b>成果</b>來寫，例如「完成冬令營招生文案初稿」<br>⏱ 每件選 1 或 2 小時<br>✅ 做完就在左邊的方框打勾<br>🌙 下班前按「下班回報」<br>🔁 想請夥伴先做別的事，在他的卡片留言並勾「插隊」</div></section>';
+  h+='<section class="panel"><div class="panel-b pad sub" style="font-size:13px">✍️ 用<b>成果</b>來寫，例如「完成冬令營招生文案初稿」<br>⏱ 每件選 1 或 2 小時；從我的任務帶入的會用待辦填的預估時數<br>✅ 做完就在左邊的方框打勾<br>🌙 下班前按「下班回報」<br>🔁 想請夥伴先做別的事，在他的卡片留言並勾「插隊」</div></section>';
   h+='</aside></div>';
   const others=ms.filter(x=>!m||x.id!==m.id);
   if(others.length)h+='<h2 style="margin:0 0 10px">夥伴今天的三件事</h2><div class="dm-grid">'+others.map(x=>dmCard(x,d)).join('')+'</div>';
   return h;
 }
+function dmEst(it){const x=it&&it.todoId&&S.todos[it.todoId];const v=x&&Number(x.hours);return v>0?v:0}
+function dmH(it){return dmEst(it)||Number(it.h)||1}
 function dmLinkHtml(it){if(!it.t)return '';if(it.todoId&&S.todos[it.todoId])return '<div class="dm-link">↔ 已連動我的待辦，打勾會同步<button data-act="dmOpenLink" data-kind="todo" data-id="'+esc(it.todoId)+'">打開</button></div>';if(it.taskId&&S.tasks[it.taskId]){const t=S.tasks[it.taskId];return '<div class="dm-link">↔ 專案任務：'+esc(S.projects[t.projectId]?.name||'')+'・進度 '+prog(t)+'%<button data-act="dmOpenLink" data-kind="task" data-id="'+esc(t.id)+'">更新進度</button></div>'}return ''}
 function routineSec(m,d,items){
   const inDm=new Set(items.flatMap(i=>[i.todoId,i.taskId]).filter(Boolean));
@@ -883,13 +885,13 @@ function routineSec(m,d,items){
 }
 function myPanel(m,d){
   const key=d+'_'+m.id;const doc=S.daily[key];const items=[0,1,2].map(i=>(doc?.items||[])[i]||{t:'',done:false,h:1});
-  const hrs=items.filter(i=>i.t).reduce((s,i)=>s+(Number(i.h)||0),0);const done=items.filter(i=>i.t&&i.done).length,cnt=items.filter(i=>i.t).length;
+  const hrs=items.filter(i=>i.t).reduce((s,i)=>s+dmH(i),0);const done=items.filter(i=>i.t&&i.done).length,cnt=items.filter(i=>i.t).length;
   const cmts=Object.values(S.comments).filter(c=>c.target==='daily:'+key).sort((a,b)=>(a.at||'').localeCompare(b.at||''));
   const openCuts=cmts.filter(c=>c.kind==='cut'&&!c.resolved);
   const myOpen=liveTasks().filter(t=>mine(t,m.id)&&isOpen(t)).sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));const myTd=todosOn(m.id,d).filter(x=>!tdDoneOn(x,d));
   let h='<section class="mine"><div class="mine-h">'+avatar(m)+'<h2>我'+(d===S.date0?'今天':'這天')+'的三件事</h2><span class="st" id="dm-saved">'+(doc?.updatedAt?'<span class="slack-ok">✓ 已儲存 '+esc(new Date(doc.updatedAt).toTimeString().slice(0,5))+'</span>':'<span class="hint">還沒填寫</span>')+'</span></div>';
   if(openCuts.length)h+='<div class="mine-sec" style="background:var(--amber-soft)"><h3>🔁 有 '+openCuts.length+' 個插隊請求</h3>'+openCuts.map(c=>cmtHtml(c,true)).join('')+'</div>';
-  h+=items.map((it,i)=>'<div class="slot2'+(it.done?' is-done':'')+'"><label class="dm-ck" title="完成了就打勾"><input type="checkbox" id="dmd-'+i+'" data-act="dmDone" data-i="'+i+'" '+(it.done?'checked':'')+' aria-label="第 '+(i+1)+' 件完成">✓</label><span class="dm-no'+(i===0?' first':'')+'">'+(i+1)+'</span><input type="text" id="dmt-'+i+'" data-dm="'+i+'" value="'+esc(it.t)+'" placeholder="'+['今天最重要的成果，例如：完成招生文案初稿','第二個成果','第三個成果'][i]+'" maxlength="120" autocomplete="off"><span class="seg2" role="radiogroup" aria-label="預估時間"><label><input type="radio" name="dmh-'+i+'" value="1" data-dmh="'+i+'" '+(Number(it.h)!==2?'checked':'')+'>1 小時</label><label><input type="radio" name="dmh-'+i+'" value="2" data-dmh="'+i+'" '+(Number(it.h)===2?'checked':'')+'>2 小時</label></span>'+dmLinkHtml(it)+'</div>').join('');
+  h+=items.map((it,i)=>'<div class="slot2'+(it.done?' is-done':'')+'"><label class="dm-ck" title="完成了就打勾"><input type="checkbox" id="dmd-'+i+'" data-act="dmDone" data-i="'+i+'" '+(it.done?'checked':'')+' aria-label="第 '+(i+1)+' 件完成">✓</label><span class="dm-no'+(i===0?' first':'')+'">'+(i+1)+'</span><input type="text" id="dmt-'+i+'" data-dm="'+i+'" value="'+esc(it.t)+'" placeholder="'+['今天最重要的成果，例如：完成招生文案初稿','第二個成果','第三個成果'][i]+'" maxlength="120" autocomplete="off">'+(dmEst(it)?'<span class="seg2" role="radiogroup" aria-label="預估時間" title="時數來自我的任務裡填的預估，要改請打開待辦"><label><input type="radio" name="dmh-'+i+'" value="'+dmEst(it)+'" data-dmh="'+i+'" checked>預估 '+dmEst(it)+' 小時</label></span>':'<span class="seg2" role="radiogroup" aria-label="預估時間"><label><input type="radio" name="dmh-'+i+'" value="1" data-dmh="'+i+'" '+(Number(it.h)!==2?'checked':'')+'>1 小時</label><label><input type="radio" name="dmh-'+i+'" value="2" data-dmh="'+i+'" '+(Number(it.h)===2?'checked':'')+'>2 小時</label></span>')+dmLinkHtml(it)+'</div>').join('');
   h+='<div class="mine-foot"><div class="meter"><div class="hint">預估 <b class="mono" id="dm-hrs">'+hrs+'</b> / 8 小時・完成 <b class="mono">'+done+'</b>/'+cnt+'</div><div class="bar" style="margin-top:4px"><span id="dm-bar" style="width:'+Math.min(100,hrs/8*100)+'%;background:var(--blue)"></span></div></div>'+(myOpen.length||myTd.length?'<select id="dmPick" data-act="dmPick" style="width:auto;max-width:220px" aria-label="從我的任務帶入"><option value="">＋ 從我的任務帶入</option>'+(myTd.length?'<optgroup label="我的待辦">'+myTd.map(x=>'<option value="td:'+esc(x.id)+'">'+esc((recOf(x)?'🔁 ':'')+x.title)+'</option>').join('')+'</optgroup>':'')+'<optgroup label="專案任務">'+myOpen.slice(0,60).map(t=>'<option value="'+esc(t.id)+'">'+esc((t.due?fmtD(t.due)+'｜':'')+t.title)+'</option>').join('')+'</optgroup></select>':'')+'<button class="btn primary" data-act="dmSave">儲存</button></div>'+routineSec(m,d,items);
   if(d===S.date0&&cnt)h+='<div class="mine-sec"><h3>🌙 下班回報'+(doc?.report?' <span class="badge-ok">已回報 '+esc((doc.report.at||'').slice(11,16))+'</span>':'')+'</h3><textarea id="dmr-note" rows="2" placeholder="沒完成的原因，或明天要接續的事（選填）" style="min-height:40px">'+esc(doc?.report?.note||'')+'</textarea><div style="display:flex;justify-content:flex-end"><button class="btn '+(doc?.report?'':'primary')+'" data-act="dmReport">'+(doc?.report?'更新回報':'送出下班回報')+'</button></div></div>';
   const others=cmts.filter(c=>!(c.kind==='cut'&&!c.resolved));
@@ -900,7 +902,7 @@ function dmCard(m,d){
   const key=d+'_'+m.id;const doc=S.daily[key];const items=[0,1,2].map(i=>(doc?.items||[])[i]||{t:'',done:false,h:1});
   const mineCard=me()&&me().id===m.id;const editable=mineCard&&S.canWrite;
   const cmts=Object.values(S.comments).filter(c=>c.target==='daily:'+key).sort((a,b)=>(a.at||'').localeCompare(b.at||''));
-  const hrs=items.filter(i=>i.t).reduce((s,i)=>s+(Number(i.h)||0),0);
+  const hrs=items.filter(i=>i.t).reduce((s,i)=>s+dmH(i),0);
   let h='<article class="dm'+(mineCard?' me':'')+'"><div class="dm-h">'+avatar(m)+'<span class="name">'+esc(m.name)+(mineCard?'（我）':'')+'</span>'+(doc?.report?'<span class="badge-ok">已回報 '+esc((doc.report.at||'').slice(11,16))+'</span>':'')+'</div>';
   if(editable){
     const myOpen=liveTasks().filter(t=>mine(t,m.id)&&isOpen(t)).sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
@@ -1078,6 +1080,7 @@ function memberBuckets(mid){
   return [['逾期',ts.filter(t=>t.due&&t.due<S.date0&&!PENDING.includes(t.status))],['本週',ts.filter(t=>t.due&&t.due>=S.date0&&t.due<=we&&!PENDING.includes(t.status))],['Pending',ts.filter(t=>PENDING.includes(t.status))],['之後',ts.filter(t=>!PENDING.includes(t.status)&&t.due&&t.due>we)],['沒有期限',ts.filter(t=>!t.due&&!PENDING.includes(t.status))]];
 }
 function wkCols(){if(S.wkCols===undefined){let v=null,o=null;try{v=localStorage.getItem('jj-wkcols');o=localStorage.getItem('jj-wkv')}catch(_){}v=Number(v);S.wkCols=[1,2,4,8].includes(v)?v:(o==='0'?8:1)}return S.wkCols}
+function wkStart(){if(S.wkStart===undefined){let v=null;try{v=localStorage.getItem('jj-wkstart')}catch(_){}S.wkStart=v==='1'?1:0}return S.wkStart}
 const WK_LAYOUTS=[[1,'1 欄 × 8 列（直式）'],[2,'2 欄 × 4 列'],[4,'4 欄 × 2 列（週計畫）'],[8,'8 欄 × 1 列（橫式）']];
 function viewMine(){
   const m=me();
@@ -1090,9 +1093,9 @@ function viewMine(){
     h+='<div class="grid">'+panel('我的待辦',todos.length+' 項',todos.length?todos.map(x=>(recOf(x)?'<div class="row click" data-act="tdOpen" data-id="'+esc(x.id)+'"><span class="rec-tag">🔁</span><div class="main"><div class="t">'+esc(x.title)+'</div><div class="meta"><span>'+esc(recLabel(recOf(x),x.date))+'</span></div></div></div>':'<div class="row"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" '+(self?'':'disabled')+' aria-label="完成"><div class="main"><div class="t" data-act="tdOpen" data-id="'+esc(x.id)+'" style="cursor:pointer">'+linkT(x.title)+'</div></div><span class="due">'+(x.date?fmtD(x.date):'無日期')+'</span></div>')).join(''):empty('沒有待辦。到「行事曆」分頁新增。'));
     return h+g.map(([nm,l])=>panel('專案任務・'+nm,l.length+' 項',l.length?l.sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')).map(t=>taskRow(t,{noOwner:t.owner===who.id})).join(''):empty('沒有。'))).join('')+'</div>'}
   // week calendar (Sunday start)
-  const base=S.mineWeek||S.date0;const d0=parseD(base);const sun=addDays(base,-d0.getDay());const days=[...Array(7)].map((_,i)=>addDays(sun,i));
-  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<label class="wk-mode" style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">版面</span><select data-act="wkCols" style="width:auto" aria-label="版面欄列數">'+WK_LAYOUTS.map(([v,l])=>'<option value="'+v+'" '+(wkCols()===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
-  loadMemberCals(addDays(sun,1));loadCompanyRange(sun,addDays(sun,6));
+  const base=S.mineWeek||S.date0;const d0=parseD(base);const ws=wkStart();const sun=addDays(base,-((d0.getDay()-ws+7)%7));const days=[...Array(7)].map((_,i)=>addDays(sun,i));
+  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<label style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">週起始</span><select data-act="wkStart" style="width:auto" aria-label="一週從哪天開始"><option value="0" '+(wkStart()===0?'selected':'')+'>週日</option><option value="1" '+(wkStart()===1?'selected':'')+'>週一</option></select></label>'+'<label class="wk-mode" style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">版面</span><select data-act="wkCols" style="width:auto" aria-label="版面欄列數">'+WK_LAYOUTS.map(([v,l])=>'<option value="'+v+'" '+(wkCols()===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
+  loadMemberCals(ws===1?sun:addDays(sun,1));loadCompanyRange(sun,addDays(sun,6));
   const myT=liveTasks().filter(t=>mine(t,who.id));const projT=myT.filter(t=>t.due&&(isOpen(t)||t.due>=sun));
   const todayIn=S.date0>=sun&&S.date0<=addDays(sun,6);
   const lateT=todayIn?myT.filter(t=>isOpen(t)&&!PENDING.includes(t.status)&&t.due&&t.due<sun):[];
@@ -1181,25 +1184,25 @@ function teamMobHours(rows,days,wd,bar){
   }
   return h+'</div><div class="legend" style="padding-inline:0"><span><span class="sw" style="background:var(--c-proj)"></span>專案任務</span><span><span class="sw" style="background:var(--c-todo)"></span>個人待辦</span><span><span class="sw" style="background:var(--c-meet)"></span>行程</span><span>虛線＝8 小時；紅字＝超過</span><span>團隊本週合計 <b class="mono">'+Math.round(grand*10)/10+'</b> 小時</span></div></div>';
 }
-function dmWeek(mid,days){const per=days.map(d=>(dailyOf(d+'_'+mid)?.items||[]).filter(x=>x.t).map(x=>({h:Number(x.h)===2?2:1,done:!!x.done,t:x.t})));
+function dmWeek(mid,days){const per=days.map(d=>(dailyOf(d+'_'+mid)?.items||[]).filter(x=>x.t).map(x=>{const hr=Number(x.h)||1;return {h:hr>1?2:1,hr,done:!!x.done,t:x.t}}));
   const all=per.flat();const c1=all.filter(x=>x.h===1),c2=all.filter(x=>x.h===2);
-  return {per,n1:c1.length,d1:c1.filter(x=>x.done).length,n2:c2.length,d2:c2.filter(x=>x.done).length,plan:c1.length+2*c2.length,doneH:c1.filter(x=>x.done).length+2*c2.filter(x=>x.done).length,filled:per.filter(x=>x.length).length,reported:days.filter(d=>dailyOf(d+'_'+mid)?.report).length}}
-function dmChips(list){if(!list.length)return '<span class="hint">—</span>';return '<span class="dmc">'+list.map(x=>'<i class="'+(x.h===2?'h2':'h1')+(x.done?' ok':'')+'" title="'+esc((x.done?'✓ ':'○ ')+x.t+'（'+x.h+' 小時）')+'"></i>').join('')+'</span>'}
-function dmBar(r,W){const MAX=30,sc=v=>Math.min(v,MAX)/MAX*W;const seg=[[r.d2*2,'var(--c-proj)',1],[(r.n2-r.d2)*2,'var(--c-proj)',0],[r.d1,'var(--c-todo)',1],[r.n1-r.d1,'var(--c-todo)',0]];let x=0,g='';
+  return {per,n1:c1.length,d1:c1.filter(x=>x.done).length,n2:c2.length,d2:c2.filter(x=>x.done).length,plan:all.reduce((s,x)=>s+x.hr,0),doneH:all.filter(x=>x.done).reduce((s,x)=>s+x.hr,0),hd1:c1.filter(x=>x.done).reduce((s,x)=>s+x.hr,0),ho1:c1.filter(x=>!x.done).reduce((s,x)=>s+x.hr,0),hd2:c2.filter(x=>x.done).reduce((s,x)=>s+x.hr,0),ho2:c2.filter(x=>!x.done).reduce((s,x)=>s+x.hr,0),filled:per.filter(x=>x.length).length,reported:days.filter(d=>dailyOf(d+'_'+mid)?.report).length}}
+function dmChips(list){if(!list.length)return '<span class="hint">—</span>';return '<span class="dmc">'+list.map(x=>'<i class="'+(x.h===2?'h2':'h1')+(x.done?' ok':'')+'" title="'+esc((x.done?'✓ ':'○ ')+x.t+'（'+x.hr+' 小時）')+'"></i>').join('')+'</span>'}
+function dmBar(r,W){const MAX=30,sc=v=>Math.min(v,MAX)/MAX*W;const seg=[[r.hd2??r.d2*2,'var(--c-proj)',1],[r.ho2??(r.n2-r.d2)*2,'var(--c-proj)',0],[r.hd1??r.d1,'var(--c-todo)',1],[r.ho1??(r.n1-r.d1),'var(--c-todo)',0]];let x=0,g='';
   for(const [v,c,solid] of seg){if(!v)continue;const w=Math.max(1,sc(v)-2);g+=solid?'<rect x="'+x+'" y="3" width="'+w+'" height="12" rx="3" fill="'+c+'"/>':'<rect x="'+(x+.75)+'" y="3.75" width="'+Math.max(0,w-1.5)+'" height="10.5" rx="2.5" fill="none" stroke="'+c+'" stroke-width="1.5" stroke-dasharray="3 2"/>';x+=sc(v)}
   return '<svg width="'+W+'" height="18" viewBox="0 0 '+W+' 18" aria-hidden="true"><rect x="0" y="3" width="'+W+'" height="12" rx="3" fill="var(--surface-2)"/>'+g+'</svg>'}
 function teamDmStats(ms,days,wd){
   const rows=ms.map(m=>({m,...dmWeek(m.id,days)}));const T=rows.reduce((a,r)=>({n1:a.n1+r.n1,d1:a.d1+r.d1,n2:a.n2+r.n2,d2:a.d2+r.d2,plan:a.plan+r.plan,doneH:a.doneH+r.doneH,filled:a.filled+r.filled}),{n1:0,d1:0,n2:0,d2:0,plan:0,doneH:0,filled:0});
   const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
   let h=S.wdLoaded?'':'<div class="hint" style="margin-bottom:8px">載入這週的三件事…</div>';
-  h+='<div class="kpis" style="margin-bottom:14px">'+[[T.n1,'1 小時的事','完成 '+T.d1+'・'+pct(T.d1,T.n1)],[T.n2,'2 小時的事','完成 '+T.d2+'・'+pct(T.d2,T.n2)],[T.doneH+' / '+T.plan,'完成時數 / 預估時數','小時'],[pct(T.d1+T.d2,T.n1+T.n2),'整體完成率',T.filled+' 人次有填寫']].map(([v,l,sub])=>'<div class="kpi"><div class="v">'+v+'</div><div class="l">'+l+'</div><div class="hint">'+sub+'</div></div>').join('')+'</div>';
+  h+='<div class="kpis" style="margin-bottom:14px">'+[[T.n1,'1 小時以內的事','完成 '+T.d1+'・'+pct(T.d1,T.n1)],[T.n2,'超過 1 小時的事','完成 '+T.d2+'・'+pct(T.d2,T.n2)],[T.doneH+' / '+T.plan,'完成時數 / 預估時數','小時'],[pct(T.d1+T.d2,T.n1+T.n2),'整體完成率',T.filled+' 人次有填寫']].map(([v,l,sub])=>'<div class="kpi"><div class="v">'+v+'</div><div class="l">'+l+'</div><div class="hint">'+sub+'</div></div>').join('')+'</div>';
   h+='<section class="panel only-desk"><div class="tbl-wrap"><table class="tb"><thead><tr><th>夥伴</th>'+days.map((d,i)=>'<th class="'+(i>4?'wkend ':'')+(d===S.date0?'today':'')+'">週'+wd[i]+' '+Number(d.slice(5,7))+'/'+Number(d.slice(8))+'</th>').join('')+'<th class="num">1 小時</th><th class="num">2 小時</th><th style="min-width:230px">完成 / 預估時數</th><th class="num">完成率</th></tr></thead><tbody>';
   h+=rows.map(r=>'<tr><td class="who"><span class="chip">'+avatar(r.m)+esc(r.m.name)+'</span></td>'+r.per.map((l,i)=>'<td class="'+(i>4?'wkend ':'')+(days[i]===S.date0?'today':'')+'" style="min-width:70px">'+dmChips(l)+'</td>').join('')+'<td class="num">'+r.d1+'/'+r.n1+'</td><td class="num">'+r.d2+'/'+r.n2+'</td><td>'+dmBar(r,180)+'<div class="hint"><b class="mono" style="color:var(--ink)">'+r.doneH+'</b> / '+r.plan+' 小時'+(r.filled?'・填了 '+r.filled+' 天':'・這週沒填')+'</div></td><td class="num"><b>'+pct(r.d1+r.d2,r.n1+r.n2)+'</b></td></tr>').join('');
   h+='</tbody></table></div>'+dmLegend()+'</section>';
   h+='<div class="only-mob"><div class="mcards">'+rows.map(r=>'<div class="mc"><div class="mc-h">'+avatar(r.m)+'<span class="nm">'+esc(r.m.name)+'</span><b class="mono">'+pct(r.d1+r.d2,r.n1+r.n2)+'</b></div>'+dmBar(r,300).replace('width="300"','width="100%" preserveAspectRatio="none"')+'<div class="hint" style="margin:4px 0 8px">1 小時 '+r.d1+'/'+r.n1+'・2 小時 '+r.d2+'/'+r.n2+'・完成 '+r.doneH+' / '+r.plan+' 小時</div><div class="wbars">'+r.per.map((l,i)=>'<div>'+dmChips(l)+'<div class="d'+(days[i]===S.date0?' today':'')+'">'+wd[i]+'</div></div>').join('')+'</div></div>').join('')+'</div>'+dmLegend()+'</div>';
   return h;
 }
-function dmLegend(){return '<div class="legend"><span><span class="sw" style="background:var(--c-todo)"></span>1 小時的事</span><span><span class="sw" style="background:var(--c-proj);width:20px"></span>2 小時的事</span><span>實心＝已完成，虛線框＝沒完成</span><span>滑鼠移到小方塊上可以看內容</span><span>時數條以每週 30 小時（每天 3 件 × 2 小時）為滿格</span></div>'}
+function dmLegend(){return '<div class="legend"><span><span class="sw" style="background:var(--c-todo)"></span>1 小時以內的事</span><span><span class="sw" style="background:var(--c-proj);width:20px"></span>超過 1 小時的事</span><span>實心＝已完成，虛線框＝沒完成</span><span>滑鼠移到小方塊上可以看內容</span><span>時數條以每週 30 小時（每天 3 件 × 2 小時）為滿格</span></div>'}
 function viewTeam(){
   const ms=teamMembers();const tab=S.ttab||'todos';const base=S.teamWeek||S.date0;const days=weekDays(base);const wd=['一','二','三','四','五','六','日'];
   let h='<div class="page-head"><div><div class="eyebrow">'+(isAdmin()?'全體夥伴':ms.length>1?'你負責的部門':'只有你自己')+'</div><h1>團隊</h1></div><div class="toolbar"><button class="btn" data-act="twPrev" aria-label="上一週">‹</button><button class="btn" data-act="twToday">本週</button><button class="btn" data-act="twNext" aria-label="下一週">›</button><b>'+fmtD(days[0]).split(' ')[0]+' – '+fmtD(days[6]).split(' ')[0]+'</b></div></div>';
@@ -1610,7 +1613,7 @@ async function setTdDone(id,day,on){const x=S.todos[id];if(!x)return;let patch;i
 async function addToDaily(text,link){const m=me();if(!m)return;const day=S.view==='daily'?S.date:S.date0;const key=day+'_'+m.id;const cur=S.daily[key];const items=[0,1,2].map(i=>({t:'',done:false,h:1,taskId:'',todoId:'',...((cur?.items||[])[i]||{})}));
   if(link&&items.some(i=>(link.todoId&&i.todoId===link.todoId)||(link.taskId&&i.taskId===link.taskId))){toast('已經在三件事裡了');return}
   const idx=items.findIndex(i=>!i.t);if(idx<0){toast('三件事已經填滿了，先清掉一項');return}
-  items[idx]={...items[idx],t:text,taskId:link&&link.taskId||'',todoId:link&&link.todoId||'',h:link&&link.h?(link.h>=2?2:1):items[idx].h};
+  items[idx]={...items[idx],t:text,taskId:link&&link.taskId||'',todoId:link&&link.todoId||'',h:link&&Number(link.h)>0?Number(link.h):items[idx].h};
   const body={date:day,memberId:m.id,items,report:cur?.report||null,updatedAt:nowISO()};S.daily[key]=body;render();await W(S.db.doc('daily/'+key).set(body),'已排進'+(day===S.date0?'今天':fmtD(day))+'的三件事（第 '+(idx+1)+' 件）')}
 async function addToDaily_old(text){const m=me();if(!m)return;const key=S.date0+'_'+m.id;const cur=S.daily[key];const items=[0,1,2].map(i=>({t:'',done:false,h:1,taskId:'',...((cur?.items||[])[i]||{})}));const idx=items.findIndex(i=>!i.t);if(idx<0){toast('今天的三件事已經填滿了');return}items[idx].t=text;const body={date:S.date0,memberId:m.id,items,report:cur?.report||null,updatedAt:nowISO()};S.daily[key]=body;await W(S.db.doc('daily/'+key).set(body),'已排進今天的三件事（第 '+(idx+1)+' 件）')}
 /* ---------- events ---------- */
@@ -1705,6 +1708,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.rec){setRecPreset(el.dataset.rec,el.dataset.id,el.value);return}
   if(el.dataset.recf){setRecField(el.dataset.rkind,el.dataset.id,el.dataset.recf,el.value);return}
   if(el.dataset.act==='mineWho'){S.mineWho=el.value;render();return}
+  if(el.dataset.act==='wkStart'){S.wkStart=Number(el.value);try{localStorage.setItem('jj-wkstart',el.value)}catch(_){}render();return}
   if(el.dataset.act==='wkCols'){S.wkCols=Number(el.value);try{localStorage.setItem('jj-wkcols',el.value)}catch(_){}render();return}
   if(el.dataset.act==='setWp'){const t=S.tasks[el.dataset.id];if(!t)return;const wp=el.value;const code=wp?wp+'.'+(projTasks(t.projectId).filter(x=>!x.phase&&wpOf(x)===wp&&x.id!==t.id).length+1):'';W(S.db.doc('tasks/'+t.id).update({code,updatedAt:nowISO()}));return}
   if(el.dataset.deptch){const id=el.dataset.deptch,v=el.value;W(S.db.doc('depts/'+id).update({slackChannel:v,slackChannelName:chName(v)||''}),'已更新部門預設頻道');return}
