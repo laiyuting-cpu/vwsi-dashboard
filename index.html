@@ -7,6 +7,7 @@
 <title>職掘工作台</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<script>try{var t=localStorage.getItem('jj-theme');if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(_){}</script>
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 <meta name="apple-mobile-web-app-title" content="職掘工作台">
 <link rel="manifest" href="manifest.webmanifest">
@@ -34,6 +35,7 @@
   --yellow:#ffe116; --yellow-ink:#262626; --hl:rgba(255,225,22,.28);
   --red:#ff7a6e; --red-soft:#3a1d1b; --amber:#f2b34d; --amber-soft:#36290f; --green:#5fd08f; --green-soft:#16301f; --violet:#b39cf2; --violet-soft:#2a2340;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25); --c-proj:#3d8fd6; --c-todo:#b07c10; --c-meet:#6f7b86; color-scheme:dark}}
+:root[data-theme="light"]{color-scheme:light}
 :root[data-theme="dark"]{
   --bg:#12171c; --surface:#1a2027; --surface-2:#222a33; --line:#2f3943;
   --ink:#ecf0f3; --ink-2:#aab4bd; --ink-3:#7b8792;
@@ -765,8 +767,11 @@ function draw(){
 }
 function drawWho(){
   const el=document.getElementById('who');const m=me();
-  el.innerHTML=(m?avatar(m)+'<span>'+esc(m.name)+'</span><span class="perm '+roleOf(m)+'">'+ROLE_LABEL[roleOf(m)]+'</span>':'')+(S.sb&&S.uid?'<button class="out" data-act="logout" title="登出">登出</button>':'');
+  el.innerHTML=(m?avatar(m)+'<span>'+esc(m.name)+'</span><span class="perm '+roleOf(m)+'">'+ROLE_LABEL[roleOf(m)]+'</span>':'')+themeBtn()+(S.sb&&S.uid?'<button class="out" data-act="logout" title="登出">登出</button>':'');
 }
+const THEMES=[['','🌓 自動','跟著電腦設定'],['light','☀️ 亮色','固定亮色'],['dark','🌙 暗色','固定暗色']];
+function curTheme(){return document.documentElement.dataset.theme||''}
+function themeBtn(){const t=THEMES.find(x=>x[0]===curTheme())||THEMES[0];return '<button class="out" data-act="theme" title="外觀：'+t[2]+'（點一下切換）" aria-label="切換外觀，目前'+t[2]+'">'+t[1]+'</button>'}
 function identityBanner(){
   if(me())return '';
   if(!S.uid)return '';
@@ -1335,7 +1340,7 @@ function cleanHtml(html){
 }
 function richBlock(key,html,editable,placeholder){
   const on=S.richEditing===key&&editable;
-  return (on?'<div class="rich-bar" data-richbar="'+esc(key)+'"><button type="button" data-rcmd="bold" title="粗體"><b>B</b></button><button type="button" data-rcmd="insertUnorderedList" title="項目符號">• 清單</button><button type="button" data-rcmd="link" title="把選取的文字變成連結">🔗 連結</button>'+(S.richLink===key?'<input type="text" id="rich-url" placeholder="貼上網址後按 Enter" data-richurl="'+esc(key)+'">':'')+'<span class="hint">選取文字後直接貼上網址，也會變成連結</span></div>':'')+
+  return (on?'<div class="rich-bar" data-richbar="'+esc(key)+'"><button type="button" data-rcmd="bold" title="粗體"><b>B</b></button><button type="button" data-rcmd="insertUnorderedList" title="項目符號">• 清單</button>'+(S.richLink===key?'<input type="text" id="rich-url" placeholder="貼上網址後按 Enter" data-richurl="'+esc(key)+'">':'')+'<span class="hint">選取文字後直接貼上網址，也會變成連結</span></div>':'')+
     '<div class="rich '+(on?'editing':'view')+'" id="rich-'+esc(key)+'" data-rich="'+esc(key)+'" '+(on?'contenteditable="true"':(editable?'data-act="richEdit" data-k="'+esc(key)+'" tabindex="0" role="button" aria-label="編輯描述"':''))+'>'+(html||(on?'':'<span class="ph">'+esc(placeholder||(editable?'點這裡寫描述、備註，可以貼上連結':'沒有描述'))+'</span>'))+'</div>';
 }
 let richRange=null;
@@ -1663,6 +1668,7 @@ document.addEventListener('click',async e=>{
     case 'twToday':S.teamWeek=S.date0;render();break;
     case 'wkPrev':S.mineWeek=addDays(S.mineWeek||S.date0,-7);render();break;
     case 'wkNext':S.mineWeek=addDays(S.mineWeek||S.date0,7);render();break;
+    case 'theme':{const i=THEMES.findIndex(x=>x[0]===curTheme());const nx=THEMES[(i+1)%THEMES.length][0];if(nx)document.documentElement.dataset.theme=nx;else delete document.documentElement.dataset.theme;try{nx?localStorage.setItem('jj-theme',nx):localStorage.removeItem('jj-theme')}catch(_){}drawWho();toast('外觀：'+THEMES[(i+1)%THEMES.length][2]);break}
     case 'wkToday':S.mineWeek=S.date0;render();break;
     case 'tdAdd':S.tdAdd=a.dataset.day;S.tdEdit=null;render();setTimeout(()=>document.getElementById('td-new')?.focus(),30);break;
     case 'tdEdit':S.tdEdit=id;S.tdAdd=null;render();setTimeout(()=>{const f=document.getElementById('td-edit');if(f){f.focus();f.select()}},30);break;
