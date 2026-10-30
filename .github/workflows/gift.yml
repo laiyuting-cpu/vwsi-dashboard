@@ -1,0 +1,30 @@
+# 聖誕交換禮物：11/2（一）提醒留言、11/9（一）台灣時間 09:07 自動抽籤（結果私訊）
+name: Gift exchange
+on:
+  schedule:
+    - cron: '7 1 2 11 *'   # 11/2 09:07 提醒還沒留言的人
+    - cron: '7 1 6 11 *'   # 11/6 09:07 再提醒一次
+    - cron: '7 1 9 11 *'   # 11/9 09:07 抽籤
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'remind 或 draw'
+        default: remind
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Call gift function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SCHED: ${{ github.event.schedule }}
+          INPUT_ACTION: ${{ github.event.inputs.action }}
+        run: |
+          set -euo pipefail
+          CRON_SECRET=$(printf '%s' "$SUPABASE_ACCESS_TOKEN:vwsi-cron" | sha256sum | cut -c1-48)
+          ACTION="${INPUT_ACTION:-remind}"
+          if [ "$SCHED" = "7 1 9 11 *" ]; then ACTION=draw; fi
+          curl -fsS -X POST "https://pratgdxlgwgjchkvnaum.supabase.co/functions/v1/gift" -H "x-cron-secret: $CRON_SECRET" -H "Content-Type: application/json" -d "{\"action\":\"$ACTION\"}" | sed -E 's/"(id|giver|receiver)":"[^"]*"/"\1":"…"/g'

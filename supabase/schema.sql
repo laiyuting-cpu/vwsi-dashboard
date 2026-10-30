@@ -199,3 +199,46 @@ drop policy if exists "avatars insert" on storage.objects;
 drop policy if exists "avatars update" on storage.objects;
 create policy "avatars insert" on storage.objects for insert to authenticated with check (bucket_id = 'avatars' and public.is_member());
 create policy "avatars update" on storage.objects for update to authenticated using (bucket_id = 'avatars' and public.is_member());
+-- ---------- 交換禮物 ----------
+do $$
+declare t text;
+begin
+  foreach t in array array['gifts','gift_draws'] loop
+    execute format($f$
+      create table if not exists public.%I (
+        id text primary key default replace(gen_random_uuid()::text,'-',''),
+        data jsonb not null default '{}'::jsonb,
+        updated_at timestamptz not null default now()
+      )$f$, t);
+    execute format('alter table public.%I enable row level security', t);
+    execute format('revoke all on public.%I from anon', t);
+    execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    execute format('grant select, insert, update, delete on public.%I to service_role', t);
+    execute coalesce((select string_agg(format('drop policy if exists %I on public.%I;', policyname, t), ' ')
+             from pg_policies where schemaname = 'public' and tablename = t), 'select 1');
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end $$;
+-- 願望：大家都看得到；本人寫自己的，主管改設定（id = config）
+create policy r on public.gifts for select to authenticated using (public.is_member());
+create policy w on public.gifts for all to authenticated
+  using (id = public.my_member_id() or (id = 'config' and public.is_admin()))
+  with check (id = public.my_member_id() or (id = 'config' and public.is_admin()));
+-- 抽籤結果：只有抽的人自己看得到；只有後端（排程）能寫
+create policy r on public.gift_draws for select to authenticated using (data->>'giver' = public.my_member_id());
+
+create or replace function public.doc_patch(tbl text, doc_id text, patch jsonb) returns void
+language plpgsql security invoker set search_path = public as $$
+declare n int;
+begin
+  if tbl not in ('members','depts','projects','tasks','templates','goals','manuals','todos','daily','comments','prefs','gifts') then
+    raise exception 'unknown table %', tbl;
+  end if;
+  execute format('update public.%I set data = data || $1, updated_at = now() where id = $2', tbl) using patch, doc_id;
+  get diagnostics n = row_count;
+  if n = 0 then raise exception 'not_found_or_denied' using errcode = '42501'; end if;
+end $$;
+grant execute on function public.doc_patch(text, text, jsonb) to authenticated, service_role;
