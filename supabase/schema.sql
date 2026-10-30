@@ -242,3 +242,16 @@ begin
   if n = 0 then raise exception 'not_found_or_denied' using errcode = '42501'; end if;
 end $$;
 grant execute on function public.doc_patch(text, text, jsonb) to authenticated, service_role;
+-- 願望只有本人和抽到他的人看得到；填寫進度用 gift_status()（管理員才拿得到名單）
+alter policy r on public.gifts using (
+  public.is_member() and (
+    id = 'config' or id = public.my_member_id()
+    or exists (select 1 from public.gift_draws d where d.data->>'giver' = public.my_member_id() and d.data->>'receiver' = gifts.id)));
+create or replace function public.gift_status() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select case when not public.is_member() then null else jsonb_build_object(
+    'filled', (select count(*) from public.gifts where id <> 'config' and coalesce(data->>'wish','') <> ''),
+    'ids', case when public.is_admin() then (select coalesce(jsonb_agg(id), '[]'::jsonb) from public.gifts where id <> 'config' and coalesce(data->>'wish','') <> '') end) end
+$$;
+revoke execute on function public.gift_status() from public, anon;
+grant execute on function public.gift_status() to authenticated;

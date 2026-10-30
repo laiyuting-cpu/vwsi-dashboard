@@ -340,6 +340,11 @@ input[type=range]{width:100%;accent-color:var(--green)}
 .gift-pick{display:flex;align-items:center;gap:14px;margin-bottom:12px}
 .gift-pick .avatar{width:52px;height:52px;font-size:20px}
 .gp-name{font-size:22px;font-weight:800}
+.gift-ppl{display:flex;flex-wrap:wrap;gap:8px}
+.gift-ppl .gp{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 3px;background:var(--surface);font-size:14px}
+.gift-ppl .gp.none{background:var(--surface-2);color:var(--ink-3)}
+.gh-big{white-space:nowrap}
+@media (max-width:760px){.gift-hero{padding:16px}.gh-big{font-size:18px}.gh-ico{font-size:34px}}
 .gift-wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:12px}
 .gw{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
 .gw.none{opacity:.6;background:var(--surface-2)}
@@ -1288,22 +1293,23 @@ async function loadYear(){
   yearCache.loading=false;render();
 }
 /* ---------- 交換禮物 ---------- */
-function giftSubscribe(){if(S.giftSub)return;S.giftSub=true;sub('gifts','gifts');S.db.collection('gift_draws').onSnapshot(s=>{const d=s.docs[0];S.giftDraw=d?d.data():null;render()},err)}
+async function giftStatus(){try{const {data}=await S.sb.rpc('gift_status');if(data){S.giftStat=data;render()}}catch(e){console.error(e)}}
+function giftSubscribe(){if(S.giftSub)return;S.giftSub=true;giftStatus();S.db.collection('gifts').onSnapshot(s=>{s.docChanges().forEach(c=>{if(c.type==='removed')delete S.gifts[c.doc.id];else S.gifts[c.doc.id]={id:c.doc.id,...c.doc.data()}});giftStatus();render()},err);S.db.collection('gift_draws').onSnapshot(s=>{const d=s.docs[0];S.giftDraw=d?d.data():null;render()},err)}
 function viewGift(){
   giftSubscribe();const cfg=S.gifts.config;const m=me();
   let h='<div class="page-head"><div><div class="eyebrow">🎄 聖誕節快樂</div><h1>'+esc(cfg?.title||'交換禮物')+'</h1></div></div>';
   if(!cfg)return h+'<div class="panel">'+empty('載入中…')+'</div>';
   const ids=(cfg.participants||[]).filter(id=>S.members[id]);const inIt=m&&ids.includes(m.id);
-  const filled=id=>{const w=S.gifts[id];return !!(w&&((w.adjs||[]).some(Boolean)||w.wish))};const nf=ids.filter(filled).length;
+  const st=S.giftStat||{};const doneIds=st.ids||null;const filled=id=>doneIds?doneIds.includes(id):!!(S.gifts[id]&&S.gifts[id].wish);const nf=doneIds?ids.filter(filled).length:(st.filled??0);
   const dd=fmtD(cfg.drawAt);
-  h+='<div class="gift-hero"><div><div class="gh-big">'+(cfg.drawn?'🎅 抽籤完成':'📅 '+dd+' 早上 9 點自動抽籤')+'</div><div class="sub">'+ids.length+' 位夥伴參加・禮物金額 200–400 元・'+nf+' 人已留下願望'+(cfg.drawn?'':'・抽籤結果會用 Slack 私訊告訴你，只有你自己看得到')+'</div></div><div class="gh-ico" aria-hidden="true">🎁</div></div>';
+  h+='<div class="gift-hero"><div><div class="gh-big">'+(cfg.drawn?'🎅 抽籤完成':'📅 '+dd.replace(' ','（')+'）9:00 抽籤')+'</div><div class="sub">'+ids.length+' 位夥伴參加・禮物金額 200–400 元・'+nf+' 人已留下願望'+(cfg.drawn?'':'・抽籤結果會用 Slack 私訊告訴你，只有你自己看得到')+'</div></div><div class="gh-ico" aria-hidden="true">🎁</div></div>';
   h+='<div class="grid">';
   if(inIt&&cfg.drawn){const r=S.giftDraw&&S.members[S.giftDraw.receiver];const w=r?S.gifts[r.id]||{}:{};
     h+=panel('你抽到的是','🤫 保密','<div class="panel-b pad">'+(r?'<div class="gift-pick">'+avatar(r,'lg')+'<div><div class="gp-name">'+esc(r.name)+'</div><div class="sub">準備一份禮物給他吧！</div></div></div>'+giftWish(w):empty('抽籤結果讀取中…'))+'</div>')}
   if(inIt){const w=S.gifts[m.id]||{};
     h+=panel('我的願望',w.updatedAt?'已儲存 '+fmtD(w.updatedAt.slice(0,10)):'還沒填','<form class="panel-b pad gift-form" data-form="gift"><div class="field"><span>🎁 用三個形容詞形容你想收到的禮物</span><div class="gift-adj">'+[0,1,2].map(k=>'<input type="text" name="adj'+k+'" maxlength="12" value="'+esc((w.adjs||[])[k]||'')+'" placeholder="'+['溫暖的','實用的','可愛的'][k]+'" aria-label="第 '+(k+1)+' 個形容詞">').join('')+'</div></div><label class="field"><span>🙅 請避開的東西（選填）</span><input type="text" name="avoid" maxlength="120" value="'+esc(w.avoid||'')+'" placeholder="例如：香氛類、太大不好帶回家的"></label><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="hint">💰 禮物金額 200–400 元</span><button class="btn primary" type="submit">儲存願望</button></div></form>')}
-  else if(m)h+='<div class="banner" style="margin:0">你這次沒有參加交換禮物，可以看看大家的願望 🎄</div>';
-  h+=panel('願望牆',nf+' / '+ids.length,'<div class="gift-wall">'+ids.map(id=>{const x=S.members[id],w=S.gifts[id]||{};return '<div class="gw'+(filled(id)?'':' none')+'"><div class="gw-h">'+avatar(x)+'<b>'+esc(x.name)+'</b>'+(filled(id)?'<span class="calst ok">✓ 已留言</span>':'<span class="calst no">還沒填</span>')+'</div>'+(filled(id)?giftWish(w):'')+'</div>'}).join('')+'</div>',{wide:true});
+  else if(m)h+='<div class="banner" style="margin:0">你這次沒有參加交換禮物 🎄</div>';
+  h+=panel(doneIds?'填寫進度（管理員）':'參加的夥伴',nf+' / '+ids.length+' 人已填','<div class="panel-b pad"><div class="gift-ppl">'+ids.map(id=>{const x=S.members[id];return '<span class="gp'+(doneIds&&!filled(id)?' none':'')+'">'+avatar(x)+esc(x.name)+(doneIds?(filled(id)?' <span class="calst ok">✓</span>':' <span class="calst no">還沒填</span>'):'')+'</span>'}).join('')+'</div><p class="hint" style="margin:10px 0 0">🔒 每個人的形容詞只有自己和抽到他的聖誕老人看得到'+(doneIds?'；管理員只看得到誰還沒填，看不到內容':'')+'。</p></div>',{wide:true});
   if(isAdmin()&&!cfg.drawn){const all=activeMembers();
     h+=panel('參加名單（管理員）',ids.length+' 人','<div class="panel-b pad"><div style="display:flex;flex-wrap:wrap;gap:8px 16px">'+all.map(x=>'<label class="inline"><input type="checkbox" data-act="giftWho" data-id="'+esc(x.id)+'" '+(ids.includes(x.id)?'checked':'')+'> '+esc(x.name)+'</label>').join('')+'</div><p class="hint" style="margin:10px 0 0">11/2、11/6 早上會私訊提醒還沒留言的人；'+dd+' 早上 9:07 自動抽籤，每個人只會收到自己抽到誰。抽完後名單就不能改了。</p></div>',{wide:true})}
   return h+'</div>';
@@ -1795,7 +1801,7 @@ document.addEventListener('submit',async e=>{
   const f=e.target;if(!f.dataset.form)return;e.preventDefault();
   const fd=new FormData(f);
   if(f.dataset.form==='cmt'){const text=String(fd.get('text')||'').trim();if(!text){toast('請先輸入留言內容');return}const sb=f.querySelector('button[type=submit]');if(sb){sb.disabled=true;sb.textContent='送出中…'}const m=me();const ok=await W(S.db.collection('comments').add({target:f.dataset.target,day:f.dataset.day||S.date0,text,kind:fd.get('cut')?'cut':'note',byMember:m?.id||'',byUid:S.uid||'',at:localISO(),resolved:false}),fd.get('cut')?'已送出插隊請求':'已留言');if(sb){sb.disabled=false;sb.textContent='送出'}if(ok){if(fd.get('cut'))slackCut(f.dataset.target,text);f.reset()}return}
-  if(f.dataset.form==='gift'){const m=me();if(!m)return;const adjs=[0,1,2].map(k=>String(fd.get('adj'+k)||'').trim());if(adjs.filter(Boolean).length<3){toast('請填滿三個形容詞 🎁');return}const data={memberId:m.id,adjs,wish:adjs.join('、'),avoid:String(fd.get('avoid')||'').trim(),updatedAt:nowISO()};await W(S.db.doc('gifts/'+m.id).set(data),'願望已儲存 🎁');return}
+  if(f.dataset.form==='gift'){const m=me();if(!m)return;const adjs=[0,1,2].map(k=>String(fd.get('adj'+k)||'').trim());if(adjs.filter(Boolean).length<3){toast('請填滿三個形容詞 🎁');return}const data={memberId:m.id,adjs,wish:adjs.join('、'),avoid:String(fd.get('avoid')||'').trim(),updatedAt:nowISO()};await W(S.db.doc('gifts/'+m.id).set(data),'願望已儲存 🎁');giftStatus();return}
   if(f.dataset.form==='link'){const q=String(fd.get('q')||'').trim();if(!q)return;const u=safeUrl(q);if(u){await addLink(f.dataset.id,{title:u.replace(/^https:\/\//,'').slice(0,60),url:u});return}if(!S.mcp){toast('請貼上以 https:// 開頭的網址');return}driveSearch(q);return}
   if(f.dataset.form==='manual'){const mid=f.dataset.id;const data={};MANUAL.forEach(([k])=>data[k]=String(fd.get(k)||'').trim());const bm=String(fd.get('bm')||''),bd=String(fd.get('bd')||'');data.birthday=bm&&bd?bm+'-'+bd:'';data.mbti=String(fd.get('mbti')||'');const kin=Number(fd.get('kin'));data.kin=kin>=1&&kin<=260?kin:null;data.updatedAt=nowISO();const ok=await W(S.db.doc('manuals/'+mid).set(data),'說明書已儲存');if(ok){S.modal='viewManual';drawOverlay()}return}
   if(f.dataset.form==='addTask'){const p=S.projects[S.projectId];const title=String(fd.get('title')).trim();if(!title)return;const wp=String(fd.get('wp')||'');const code=wp?wp+'.'+(projTasks(p.id).filter(t=>!t.phase&&wpOf(t)===wp).length+1):'';const ok=await W(S.db.collection('tasks').add({projectId:p.id,dept:p.dept,code,title,desc:'',owner:String(fd.get('owner')||''),collab:[],due:String(fd.get('due')||''),status:'todo',progress:0,phase:false,order:Object.keys(S.tasks).length,createdAt:nowISO(),updatedAt:nowISO()}),'已新增');if(ok)f.reset();return}
