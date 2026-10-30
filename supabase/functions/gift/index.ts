@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   const W: Record<string, any> = Object.fromEntries((wishes ?? []).map((r) => [r.id, r.data]));
   const ids: string[] = (cfg.participants ?? []).filter((id: string) => M[id] && M[id].active !== false);
   const send = (ch: string, text: string) => (opt.dry ? Promise.resolve({ ok: true, dry: true } as any) : postSlack(ch, text));
-  const filled = (id: string) => !!(W[id] && (W[id].wish || W[id].msg));
+  const filled = (id: string) => !!(W[id] && W[id].wish);
 
   if (opt.action === 'remind') {
     if (cfg.drawn) return json({ ok: true, skipped: 'already_drawn' });
@@ -48,10 +48,10 @@ Deno.serve(async (req) => {
     const out: unknown[] = [];
     for (const id of missing) {
       if (!M[id].slackId) { out.push({ id, error: 'no_slack' }); continue; }
-      const r = await send(M[id].slackId, `🎄 聖誕交換禮物 *${md(cfg.drawAt)}（一）早上自動抽籤*！\n你還沒留下願望，花 1 分鐘告訴抽到你的聖誕老人想收到什麼吧 🎁\n👉 <${LINK}|到工作台填寫>`);
+      const r = await send(M[id].slackId, `🎄 聖誕交換禮物 *${md(cfg.drawAt)}（一）早上自動抽籤*！\n你還沒留下願望，花 1 分鐘用三個形容詞告訴聖誕老人你想收到什麼吧 🎁（禮物金額 200–400 元）\n👉 <${LINK}|到工作台填寫>`);
       out.push({ id, ok: r.ok, error: r.error });
     }
-    const g = await send(GENERAL, `🎄 *聖誕交換禮物* 開放留言中！${ids.length} 位夥伴參加，目前 ${ids.length - missing.length} 人已經留下願望。\n${md(cfg.drawAt)}（一）早上 9 點自動抽籤，結果會私訊給你 🤫 👉 <${LINK}|到工作台留言>`);
+    const g = await send(GENERAL, `🎄 *聖誕交換禮物* 開放留言中！${ids.length} 位夥伴參加（禮物金額 200–400 元），目前 ${ids.length - missing.length} 人已經留下願望。\n${md(cfg.drawAt)}（一）早上 9 點自動抽籤，結果會私訊給你 🤫 👉 <${LINK}|到工作台留言>`);
     return json({ ok: true, today, missing: missing.length, dms: out, general: g.ok });
   }
 
@@ -72,10 +72,10 @@ Deno.serve(async (req) => {
       const giver = M[p.giver], rc = M[p.receiver], w = W[p.receiver] || {};
       if (!giver.slackId) { out.push({ id: p.giver, error: 'no_slack' }); continue; }
       const lines = [`🎅 *聖誕交換禮物抽籤結果*\n你是 *${rc.name}* 的神秘聖誕老人！記得保密喔 🤫`];
-      if (w.wish) lines.push(`🎁 他的願望：${w.wish}`);
+      if (w.wish) lines.push(`🎁 他用三個形容詞形容想要的禮物：*${w.wish}*`);
       if (w.avoid) lines.push(`🙅 請避開：${w.avoid}`);
-      if (w.msg) lines.push(`💌 他想說：${w.msg}`);
-      if (!w.wish && !w.msg) lines.push('他還沒留下願望，之後填了會出現在工作台。');
+      lines.push('💰 禮物金額 200–400 元');
+      if (!w.wish) lines.push('他還沒留下願望，之後填了會出現在工作台。');
       lines.push(`👉 <${LINK}|到工作台看>`);
       const r = await postSlack(giver.slackId, lines.join('\n'));
       out.push({ id: p.giver, ok: r.ok, error: r.error });
