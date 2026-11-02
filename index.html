@@ -285,6 +285,7 @@ input[type=range]{width:100%;accent-color:var(--green)}
 .strip b{font-family:var(--f-mono)}
 
 .wk{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr)) minmax(170px,1fr);border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow-x:auto;min-height:420px}
+.wk.nond{grid-template-columns:repeat(7,minmax(150px,1fr))}
 .wk .col{border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
 .wk .col:first-child{border-left:0}
 .wk .col.today .dh .n{background:var(--blue);color:var(--on-blue)}
@@ -522,6 +523,7 @@ a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;ov
   .wk.v .dh{flex:none;border-right:0;padding:10px 12px 4px}
   .wk.v .items{grid-template-columns:1fr;padding:4px 12px 10px}
   .wk-mode{display:none!important}
+  .wk.nond{grid-template-columns:1fr}
   .wk.g{grid-template-columns:1fr;gap:0;background:var(--surface)}
   .wk.g .col{min-height:0;border-top:1px solid var(--line)}
   .wk.g .col:first-child{border-top:0}
@@ -1110,6 +1112,7 @@ function memberBuckets(mid){
   return [['逾期',ts.filter(t=>t.due&&t.due<S.date0&&!PENDING.includes(t.status))],['本週',ts.filter(t=>t.due&&t.due>=S.date0&&t.due<=we&&!PENDING.includes(t.status))],['Pending',ts.filter(t=>PENDING.includes(t.status))],['之後',ts.filter(t=>!PENDING.includes(t.status)&&t.due&&t.due>we)],['沒有期限',ts.filter(t=>!t.due&&!PENDING.includes(t.status))]];
 }
 function wkCols(){if(S.wkCols===undefined){let v=null,o=null;try{v=localStorage.getItem('jj-wkcols');o=localStorage.getItem('jj-wkv')}catch(_){}v=Number(v);S.wkCols=[1,2,4,8].includes(v)?v:(o==='0'?8:1)}return S.wkCols}
+function wkNoDate(){if(S.wkNoDate===undefined){let v=null;try{v=localStorage.getItem('jj-wknodate')}catch(_){}S.wkNoDate=v!=='0'}return S.wkNoDate}
 function wkStart(){if(S.wkStart===undefined){let v=null;try{v=localStorage.getItem('jj-wkstart')}catch(_){}S.wkStart=v==='1'?1:0}return S.wkStart}
 const WK_LAYOUTS=[[1,'1 欄 × 8 列（直式）'],[2,'2 欄 × 4 列'],[4,'4 欄 × 2 列（週計畫）'],[8,'8 欄 × 1 列（橫式）']];
 function viewMine(){
@@ -1124,7 +1127,7 @@ function viewMine(){
     return h+g.map(([nm,l])=>panel('專案任務・'+nm,l.length+' 項',l.length?l.sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')).map(t=>taskRow(t,{noOwner:t.owner===who.id})).join(''):empty('沒有。'))).join('')+'</div>'}
   // week calendar (Sunday start)
   const base=S.mineWeek||S.date0;const d0=parseD(base);const ws=wkStart();const sun=addDays(base,-((d0.getDay()-ws+7)%7));const days=[...Array(7)].map((_,i)=>addDays(sun,i));
-  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<label style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">週起始</span><select data-act="wkStart" style="width:auto" aria-label="一週從哪天開始"><option value="0" '+(wkStart()===0?'selected':'')+'>週日</option><option value="1" '+(wkStart()===1?'selected':'')+'>週一</option></select></label>'+'<label class="wk-mode" style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">版面</span><select data-act="wkCols" style="width:auto" aria-label="版面欄列數">'+WK_LAYOUTS.map(([v,l])=>'<option value="'+v+'" '+(wkCols()===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
+  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b><span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<label class="inline" style="margin-left:10px;white-space:nowrap" title="隱藏後，沒有日期的待辦和專案任務可以在「清單」分頁看到"><input type="checkbox" data-act="wkNoDate" '+(wkNoDate()?'checked':'')+'> 無日期欄</label>'+'<label style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">週起始</span><select data-act="wkStart" style="width:auto" aria-label="一週從哪天開始"><option value="0" '+(wkStart()===0?'selected':'')+'>週日</option><option value="1" '+(wkStart()===1?'selected':'')+'>週一</option></select></label>'+'<label class="wk-mode" style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">版面</span><select data-act="wkCols" style="width:auto" aria-label="版面欄列數">'+WK_LAYOUTS.map(([v,l])=>'<option value="'+v+'" '+(wkCols()===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
   loadMemberCals(ws===1?sun:addDays(sun,1));loadCompanyRange(sun,addDays(sun,6));
   const myT=liveTasks().filter(t=>mine(t,who.id));const projT=myT.filter(t=>t.due&&(isOpen(t)||t.due>=sun));
   const todayIn=S.date0>=sun&&S.date0<=addDays(sun,6);
@@ -1145,7 +1148,7 @@ function viewMine(){
     c+=list.map(x=>S.tdEdit===x.id&&self?'<div class="td"><input type="text" id="td-edit" data-tdedit="'+esc(x.id)+'" value="'+esc(x.title)+'" maxlength="1000" style="padding:4px 6px"></div>':'<div class="td'+(x.done?' done':'')+'" draggable="'+(self&&!recOf(x)?'true':'false')+'" data-todo="'+esc(x.id)+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+day+'" '+(x.done?'checked':'')+' '+(self?'':'disabled')+' aria-label="完成" style="margin-top:2px"><span class="tt" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+day+'" title="點一下看詳情" style="cursor:pointer">'+linkT(x.title)+((recOf(x)||x.hours||(x.subs||[]).length||x.notes)?'<span class="meta2">'+(recOf(x)?'<span class="rec-tag">🔁 '+esc(recLabel(recOf(x),x.date))+'</span>':'')+(x.hours?'<span>⏱ '+x.hours+'h</span>':'')+((x.subs||[]).length?'<span>☑ '+x.subs.filter(z=>z.done).length+'/'+x.subs.length+'</span>':'')+(x.notes?'<span>📝</span>':'')+'</span>':'')+'</span>'+(self?'<span class="ctl">'+(day===S.date0&&!x.done?'<button data-act="tdToDm" data-id="'+esc(x.id)+'" title="排進今天的三件事">★</button>':'')+'<button data-act="tdDel" data-id="'+esc(x.id)+'" title="刪除" aria-label="刪除">✕</button></span>':'')+'</div>').join('');
     if(self)c+=S.tdAdd===day?'<input type="text" id="td-new" data-tdnew="'+day+'" placeholder="輸入後按 Enter" maxlength="1000" style="padding:6px 8px;font-size:13px">':'<button class="add" data-act="tdAdd" data-day="'+day+'">＋ 新增待辦</button>';
     return c+'</div></div>'};
-  h+='<div class="wk'+(wkCols()===1?' v':wkCols()<8?' g c'+wkCols():'')+'">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+col('','無日期')+'</div>';
+  h+='<div class="wk'+(wkCols()===1?' v':wkCols()<8?' g c'+wkCols():'')+(wkNoDate()?'':' nond')+'">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+(wkNoDate()?col('','無日期'):'')+'</div>';
   return h;
 }
 
@@ -1763,6 +1766,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.recf){setRecField(el.dataset.rkind,el.dataset.id,el.dataset.recf,el.value);return}
   if(el.dataset.act==='mineWho'){S.mineWho=el.value;render();return}
   if(el.dataset.act==='giftWho'){const c=S.gifts.config;if(!c||c.drawn)return;const set=new Set(c.participants||[]);el.checked?set.add(el.dataset.id):set.delete(el.dataset.id);W(S.db.doc('gifts/config').update({participants:[...set]}),'名單已更新');return}
+  if(el.dataset.act==='wkNoDate'){S.wkNoDate=el.checked;try{localStorage.setItem('jj-wknodate',el.checked?'1':'0')}catch(_){}render();return}
   if(el.dataset.act==='wkStart'){S.wkStart=Number(el.value);try{localStorage.setItem('jj-wkstart',el.value)}catch(_){}render();return}
   if(el.dataset.act==='wkCols'){S.wkCols=Number(el.value);try{localStorage.setItem('jj-wkcols',el.value)}catch(_){}render();return}
   if(el.dataset.act==='setWp'){const t=S.tasks[el.dataset.id];if(!t)return;const wp=el.value;const code=wp?wp+'.'+(projTasks(t.projectId).filter(x=>!x.phase&&wpOf(x)===wp&&x.id!==t.id).length+1):'';W(S.db.doc('tasks/'+t.id).update({code,updatedAt:nowISO()}));return}
