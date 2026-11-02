@@ -58,7 +58,7 @@ $$;
 
 create or replace function public.can_struct_project(pid text) returns boolean
 language sql stable security definer set search_path = public as $$
-  select public.is_admin()
+  select public.is_staff() or public.is_admin()
       or public.leads_dept((select data->>'dept' from public.projects where id = pid))
 $$;
 
@@ -146,9 +146,9 @@ create policy w on public.templates for all    to authenticated using (public.is
 create policy r on public.goals     for select to authenticated using (public.is_staff());
 create policy w on public.goals     for all    to authenticated using (public.is_admin()) with check (public.is_admin());
 
--- 專案：主管與該部門主管能建立、修改、刪除
+-- 專案：正職夥伴（非委外）都能建立、修改、刪除
 create policy r on public.projects  for select to authenticated using (public.can_see_project(id));
-create policy w on public.projects  for insert to authenticated with check (public.is_admin() or public.leads_dept(data->>'dept'));
+create policy w on public.projects  for insert to authenticated with check (public.is_staff() or public.is_admin() or public.leads_dept(data->>'dept'));
 create policy u on public.projects  for update to authenticated using (public.can_struct_project(id) or (public.is_staff() and data->>'owner' = public.my_member_id()));
 create policy d on public.projects  for delete to authenticated using (public.can_struct_project(id));
 

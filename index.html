@@ -738,7 +738,7 @@ function isOpen(t){return t.status!=='done'}
 function me(){return Object.values(S.members).find(m=>m.uid&&m.uid===S.uid)||null}
 function isAdmin(){const m=me();return S.owner||!!(m&&m.kind==='主管')}
 function isLead(dept){const m=me();return !!(m&&S.depts[dept]&&S.depts[dept].head===m.id)}
-function canStruct(dept){return S.canWrite&&(isAdmin()||isLead(dept))}
+function canStruct(dept){return S.canWrite&&!!me()&&(isAdmin()||isLead(dept)||!isOutsourced())}
 function canWorkOn(t){if(!S.canWrite)return false;const p=S.projects[t.projectId];if(canStruct(p?.dept))return true;const m=me();return !!(m&&(t.owner===m.id||(t.collab||[]).includes(m.id)))}
 function roleOf(m){if(m.kind==='主管')return 'admin';if(Object.values(S.depts).some(d=>d.head===m.id))return 'lead';return 'member'}
 const ROLE_LABEL={admin:'管理者',lead:'部門主管',member:'一般夥伴'};
@@ -1005,7 +1005,7 @@ function viewDepts(){
   if(!S.deptSel||!S.depts[S.deptSel])S.deptSel=ds[0]?.id;
   const ps=Object.values(S.projects).filter(p=>p.dept===S.deptSel&&vis.has(p.id));
   const act=ps.filter(p=>p.status!=='archived').sort((a,b)=>(a.anchor||'9').localeCompare(b.anchor||'9'));const arc=ps.filter(p=>p.status==='archived');
-  let h='<div class="page-head"><div><div class="eyebrow">專案放在部門底下</div><h1>部門專案</h1></div><div class="toolbar">'+(isAdmin()&&S.canWrite?'<button class="btn" data-act="slackImport">從 Slack 頻道建立專案</button>':'')+(canStruct(S.deptSel)?'<button class="btn primary" data-act="newProject">新增專案</button>':'')+'</div></div>';
+  let h='<div class="page-head"><div><div class="eyebrow">專案放在部門底下</div><h1>部門專案</h1></div><div class="toolbar">'+(canStruct()?'<button class="btn" data-act="slackImport">從 Slack 頻道建立專案</button>':'')+(canStruct(S.deptSel)?'<button class="btn primary" data-act="newProject">新增專案</button>':'')+'</div></div>';
   h+='<div class="split"><aside class="panel"><div class="dept-list">'+ds.map(d=>{const n=Object.values(S.projects).filter(p=>p.dept===d.id&&vis.has(p.id)&&p.status!=='archived').length;return '<button data-act="dept" data-id="'+esc(d.id)+'" aria-pressed="'+(d.id===S.deptSel)+'"><span class="dept-dot" style="background:'+esc(d.color)+'"></span>'+esc(d.name)+'<span class="n">'+n+'</span></button>'}).join('')+'</div></aside><div>';
   const d=S.depts[S.deptSel];
   if(d)h+='<div class="sub" style="margin-bottom:10px">'+esc(d.desc||'')+(d.head&&S.members[d.head]?' · 部門主管 '+esc(S.members[d.head].name):'')+'</div>';
