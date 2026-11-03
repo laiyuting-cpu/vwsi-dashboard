@@ -2,6 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
+<meta name="app-ver" content="2026-11-03a">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -353,6 +354,8 @@ input[type=range]{width:100%;accent-color:var(--green)}
 .gift-adj{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .gw-adj{display:flex;flex-wrap:wrap;gap:6px}.gw-adj span{background:var(--yellow);color:var(--yellow-ink);border-radius:999px;padding:2px 10px;font-size:14px;font-weight:700}
 .gw-l{display:flex;gap:6px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.verbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:60;background:var(--ink);color:var(--surface);padding:8px 10px 8px 16px;border-radius:999px;display:flex;gap:10px;align-items:center;box-shadow:var(--shadow);font-size:14px;white-space:nowrap}
+@media (min-width:761px){.verbar{bottom:24px}}
 a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
 .tl-day{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px;padding:12px 14px;border-top:1px solid var(--surface-2)}
 .tl-day:first-child{border-top:0}
@@ -1051,7 +1054,7 @@ function viewProject(){
     const wk=canWorkOn(t);
     const sub=['<span class="tid">'+tids[t.id]+'</span>'];if(t.priority)sub.push('<span class="prio p-'+esc(t.priority)+'">'+esc(t.priority)+'</span>');if((t.deps||[]).length)sub.push('前置 '+t.deps.map(x=>tids[x]||'').filter(Boolean).join('、'));if(t.dur)sub.push(t.dur+' 個工作天'+(t.ratio?'・每天 '+Math.round(HOURS_PER_DAY*t.ratio/100*10)/10+' 小時':''));if(t.role&&!t.owner)sub.push('建議角色：'+esc(t.role));if(PENDING.includes(t.status)&&t.waitingOn)sub.push('<span style="color:var(--violet)">'+esc(PEND_LABEL[t.status]+'：'+t.waitingOn)+'</span>');if(t.next)sub.push('下一步：'+esc(t.next));if(t.repeat)sub.push({daily:'每日',weekly:'每週',monthly:'每月'}[t.repeat]+'重複');if((t.collab||[]).length)sub.push('協作：'+t.collab.map(id=>esc(S.members[id]?.name||'')).join('、'));
     const ss=schedState(t);if(ss==='落後')sub.push('<span style="color:var(--amber)">進度落後</span>');
-    h+='<div class="task'+(t.status==='done'?' done':'')+'"><input type="checkbox" aria-label="完成" data-act="toggleDone" data-id="'+esc(t.id)+'" '+(t.status==='done'?'checked':'')+(wk?'':' disabled')+'><span class="code">'+esc(t.code||'')+'</span><div style="min-width:0"><div class="ttl" data-act="openTask" data-id="'+esc(t.id)+'">'+esc(t.title)+(prog(t)&&t.status!=='done'?' <span class="progress-mini"><span style="width:'+prog(t)+'%"></span></span>':'')+'</div><div class="role">'+sub.join(' · ')+'</div></div><select class="c-owner" aria-label="負責人" data-field="owner" data-id="'+esc(t.id)+'" '+(st?'':'disabled')+'>'+memberOptions(t.owner)+'</select><input type="date" aria-label="期限日" data-field="due" data-id="'+esc(t.id)+'" value="'+esc(t.due||'')+'" '+(st&&!t.dur?'':'disabled')+' title="'+(t.dur?'有工期的任務由排程自動計算':'')+'"><select class="c-status" aria-label="狀態" data-field="status" data-id="'+esc(t.id)+'" '+(wk?'':'disabled')+'>'+statusOptions(t.status)+'</select></div>';
+    h+='<div class="task'+(t.status==='done'?' done':'')+'"><input type="checkbox" aria-label="完成" data-act="toggleDone" data-id="'+esc(t.id)+'" '+(t.status==='done'?'checked':'')+(wk?'':' disabled')+'><span class="code">'+esc(t.code||'')+'</span><div style="min-width:0"><div class="ttl" data-act="openTask" data-id="'+esc(t.id)+'">'+esc(t.title)+(prog(t)&&t.status!=='done'?' <span class="progress-mini"><span style="width:'+prog(t)+'%"></span></span>':'')+'</div><div class="role">'+sub.join(' · ')+'</div></div><select class="c-owner" aria-label="負責人" data-field="owner" data-id="'+esc(t.id)+'" '+(st?'':'disabled')+'>'+memberOptions(t.owner)+'</select><input type="date" aria-label="期限日" data-field="due" data-id="'+esc(t.id)+'" value="'+esc(t.due||'')+'" '+(st?'':'disabled')+' title="'+(schedMode(t)==='auto'?'目前依工作天數自動排；直接改日期會改成固定期限':'')+'"><select class="c-status" aria-label="狀態" data-field="status" data-id="'+esc(t.id)+'" '+(wk?'':'disabled')+'>'+statusOptions(t.status)+'</select></div>';
   }
   if(!ts.length)h+=emptyIllo(3,'這個專案還沒有任務。'+(st?'用上方欄位新增，或在「專案設定」套用範本。':''));
   else if(!any&&S.hideDone)h+=emptyIllo(3,'所有任務都完成了！');
@@ -1536,6 +1539,7 @@ async function setTaskField(id,field,value){
   if(t[field]===value)return;
   const patch={[field]:value,updatedAt:nowISO()};
   if((field==='start'||field==='due')&&schedMode(t)==='fixed'){const st=field==='start'?value:t.start,du=field==='due'?value:t.due;if(st&&du&&st>du){toast('結束日不能早於開始日');render();drawOverlay();return}patch.dur=st&&du?workDays(st,du)||1:null;patch.sched='fixed';if(field==='due'&&recOf(t)&&!t.recBase)patch.recBase=value}
+  if(field==='due'&&value&&schedMode(t)==='auto'){const st=t.start&&t.start<=value?t.start:value;patch.sched='fixed';patch.start=st;patch.dur=workDays(st,value)||1;toast('已改成固定期限 '+fmtD(value)+'（不再自動排）')}
   if(field==='owner'&&value&&value!==t.owner&&value!==me()?.id){const p=S.projects[t.projectId];slackDM(value,'📌 *你被指派了新任務*｜'+slackId(me()?.id)+' 指派\n「'+t.title+'」（'+(p?.name||'')+'）'+(t.due?'｜期限 '+fmtD(t.due):'')+(t.deliverable?'\n驗收標準：'+t.deliverable:'')+'\n<'+location.origin+location.pathname+'#mine|打開職掘工作台>')}
   if(field==='status'){patch.doneAt=value==='done'?nowISO():null;if(value==='done')patch.progress=100;if(value==='doing'&&!t.start)patch.start=S.date0;
     const rr=recOf(t);if(value==='done'&&rr&&t.due&&!t.recSpawned){const base=t.recBase||t.due;const nd=nextOcc(rr,base,t.due);if(nd){const sh=diffDays(nd,t.due);const nt={...t,due:nd,start:t.start?toWork(addDays(t.start,sh)):'',sched:'fixed',status:'todo',progress:0,doneAt:null,rec:rr,recBase:base,repeat:'',createdAt:nowISO(),updatedAt:nowISO()};if(nt.start>nd)nt.start=nd;delete nt.id;delete nt.recSpawned;delete nt.startMin;patch.recSpawned=true;W(S.db.collection('tasks').add(nt),'🔁 已建立下一次：'+fmtD(nd))}}}
@@ -1835,6 +1839,9 @@ document.addEventListener('submit',async e=>{
   }
 });
 {const sh=document.getElementById('bsheet'),bm=document.getElementById('bmore');const close=()=>{sh.classList.remove('open');bm.setAttribute('aria-expanded','false')};bm.addEventListener('click',()=>{const o=!sh.classList.contains('open');sh.classList.toggle('open',o);bm.setAttribute('aria-expanded',String(o))});sh.addEventListener('click',e=>{if(e.target.closest('a,[data-close-sheet]'))close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()})}
+// 有新版本時提示更新（避免瀏覽器或 App 一直用舊版）
+async function checkVer(){try{const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});const t=await r.text();const m=t.match(/name="app-ver" content="([^"]+)"/);const cur=document.querySelector('meta[name=app-ver]')?.content;if(m&&cur&&m[1]!==cur&&!document.getElementById('verBar')){const d=document.createElement('div');d.id='verBar';d.className='verbar';d.innerHTML='工作台有新版本 <button class="btn primary sm" type="button">更新</button>';d.querySelector('button').onclick=()=>location.reload();document.body.appendChild(d)}}catch(_){}}
+setTimeout(checkVer,8000);setInterval(checkVer,15*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVer()});
 window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(v&&v!==S.view){if(S.view==='daily')saveDaily();S.view=v;if(v!=='depts')S.projectId=null;render();scrollTo(0,0)}});
 
 /* ---------- data ---------- */
