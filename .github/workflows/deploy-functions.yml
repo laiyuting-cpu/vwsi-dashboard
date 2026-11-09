@@ -33,3 +33,4 @@ jobs:
           supabase functions deploy slack-channels --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
           supabase functions deploy followup --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
           supabase functions deploy gift --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
+          supabase functions deploy attendance --project-ref "$PROJECT_REF" --use-api --no-verify-jwt

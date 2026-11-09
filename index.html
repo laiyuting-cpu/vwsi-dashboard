@@ -342,6 +342,29 @@ input[type=range]{width:100%;accent-color:var(--green)}
 .gift-pick{display:flex;align-items:center;gap:14px;margin-bottom:12px}
 .gift-pick .avatar{width:52px;height:52px;font-size:20px}
 .gp-name{font-size:22px;font-weight:800}
+.leave-form{display:flex;flex-direction:column;gap:12px}
+.lv-types{display:flex;flex-wrap:wrap;gap:6px}
+.lv-types label{position:relative}
+.lv-types input{position:absolute;opacity:0;pointer-events:none}
+.lv-types span{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);cursor:pointer;font-size:14px}
+.lv-types input:checked+span{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+.lv-types input:focus-visible+span{outline:2px solid var(--blue);outline-offset:2px}
+.lv-time[hidden]{display:none!important}
+.lv-time{display:flex;gap:6px;align-items:center;margin-top:8px}.lv-time input{width:auto}
+.lv{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.lv:last-child{border-bottom:0}
+.lv-t{font-size:13px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface-2);white-space:nowrap}
+.lv-leave{background:var(--yellow);color:var(--yellow-ink)}.lv-remote{background:var(--blue-soft);color:var(--blue)}
+.lv-note{order:5;flex-basis:100%;font-size:14px;color:var(--ink-2);padding-left:2px}
+.lv .btn{margin-left:auto}
+.lv-today{display:block;margin:-6px 0 14px;padding:10px 14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:14px}
+.lv-today:hover{border-color:var(--blue)}
+.proj-info{margin:-4px 0 14px;padding:12px 16px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line)}
+.proj-desc{white-space:pre-wrap;line-height:1.7;font-size:15px}
+.proj-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.proj-links a{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-weight:700;font-size:14px;text-decoration:none}
+.proj-links a:hover{text-decoration:underline}
+.plink-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:6px;margin-bottom:6px}
 .gift-ppl{display:flex;flex-wrap:wrap;gap:8px}
 .gift-ppl .gp{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 3px;background:var(--surface);font-size:14px}
 .gift-ppl .gp.none{background:var(--surface-2);color:var(--ink-3)}
@@ -582,6 +605,7 @@ a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;ov
       <a href="#team" data-view="team">團隊</a>
       <a href="#manuals" data-view="manuals">夥伴說明書</a>
       <a href="#year" data-view="year">年度回顧</a>
+      <a href="#leave" data-view="leave">請假／遠距</a>
       <a href="#gift" data-view="gift">🎁 交換禮物</a>
       <a href="#settings" data-view="settings">設定</a>
     </nav>
@@ -602,6 +626,7 @@ a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;ov
   <a href="#team" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.5c2.4.2 4 1.8 4.5 4.5"/></svg>團隊<small>每日待辦・每週工時</small></a>
   <a href="#manuals" data-view="manuals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M5 17a3 3 0 013-3h11"/></svg>夥伴說明書</a>
   <a href="#year" data-view="year"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>年度回顧</a>
+  <a href="#leave" data-view="leave"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4"/></svg>請假／遠距<small>登記與查看大家的出勤</small></a>
   <a href="#gift" data-view="gift"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-2-4-6-4-6-1.5S10 8 12 8zm0 0c2-4 6-4 6-1.5S14 8 12 8z"/></svg>交換禮物<small>聖誕節抽籤</small></a>
 </div></div>
 <div id="overlay"></div>
@@ -659,7 +684,7 @@ const MANUAL = [
 const S = {
   wdaily:{},wdKey:'',
   db:null, user:null, assets:null, mcp:null, uid:null, canWrite:true, owner:false,
-  members:{}, depts:{}, projects:{}, tasks:{}, daily:{}, comments:{}, templates:{}, goals:{}, manuals:{}, todos:{}, gifts:{}, giftDraw:null,
+  members:{}, depts:{}, projects:{}, tasks:{}, daily:{}, comments:{}, templates:{}, goals:{}, manuals:{}, todos:{}, leaves:{}, gifts:{}, giftDraw:null,
   loaded:{members:false,depts:false,projects:false,tasks:false},
   view:'overview', deptSel:null, projectId:null, date:null, hideDone:true,
   widgets:DEFAULT_WIDGETS.slice(), yearMode:'school', year:null,
@@ -788,6 +813,7 @@ function draw(){
   else if(v==='manuals')h+=viewManuals();
   else if(v==='year')h+=viewYear();
   else if(v==='gift')h+=viewGift();
+  else if(v==='leave')h+=viewLeave();
   else if(v==='settings')h+=viewSettings();
   const ae=document.activeElement;const fid=ae&&main.contains(ae)&&ae.id?ae.id:'';let sel=null;try{if(fid&&ae.selectionStart!=null)sel=[ae.selectionStart,ae.selectionEnd]}catch(_){}
   main.innerHTML=h;
@@ -818,6 +844,7 @@ function viewOverview(){
   const me_=me();const hi=new Date().getHours();const greet=hi<11?'早安':hi<18?'午安':'晚安';
   let h='<div class="page-head hero"><div><div class="eyebrow">'+fmtD(S.date0)+' · 第 '+weekNo(S.date0)+' 週</div><h1>'+(me_?greet+'，'+esc(me_.name.replace(/（.*）/,'')):'營運總覽')+'</h1><div class="toolbar" style="margin-top:10px"><button class="btn" data-act="widgets">調整顯示內容</button>'+(canNew?'<button class="btn primary" data-act="newProject">新增專案</button>':'')+'</div></div>'+'</div>';
   if(!Object.keys(S.projects).length)h+='<div class="banner">還沒有任何專案。按「新增專案」，可以直接套用 WBS 範本產生整套任務。</div>';
+  leaveSubscribe();{const lv=leavesOn(S.date0);if(lv.length)h+='<a class="lv-today" href="#leave">🗓️ 今天：'+lv.map(x=>esc((LT[x.type]||LT.other).i+' '+S.members[x.memberId].name.replace(/（.*）/,'')+(x.part&&x.part!=='full'?'（'+leaveWhen(x)+'）':''))).join('、')+'</a>'}
   h+='<div class="grid">'+ws.map(widget).join('')+'</div>';
   return h;
 }
@@ -1031,13 +1058,15 @@ function wpOf(t){return String(t.code||'').split('.')[0]}
 function expectedPct(t){if(!t.start||!t.due)return null;if(S.date0<t.start)return 0;if(S.date0>=t.due)return 100;const tot=workDays(t.start,t.due),el=workDays(t.start,S.date0);return Math.round(el/tot*100)}
 function schedState(t){if(t.status==='done')return '已完成';if(t.due&&t.due<S.date0)return '逾期';if(t.start&&S.date0<t.start)return '未開始';const e=expectedPct(t);if(e!=null&&prog(t)+20<e)return '落後';return t.start||t.status!=='todo'?'正常':'未開始'}
 function health(ts){if(!ts.length)return '未開始';if(ts.every(t=>t.status==='done'))return '完成';const st=ts.map(schedState);if(st.includes('逾期'))return '逾期';if(st.includes('落後'))return '落後';if(st.every(x=>x==='未開始'))return '未開始';return '正常'}
+function plinkRow(l){return '<div class="plink-row"><input type="text" name="lkLabel" maxlength="30" value="'+esc(l.label||'')+'" placeholder="顯示文字" aria-label="連結顯示文字"><input type="url" name="lkUrl" value="'+esc(l.url||'')+'" placeholder="https://drive.google.com/…" aria-label="連結網址"><button type="button" class="btn ghost sm" data-act="plinkDel" aria-label="移除這個連結">✕</button></div>'}
 function viewProject(){
   const p=S.projects[S.projectId];const d=deptOf(p.dept);const pr=progress(p.id);const st=canStruct(p.dept);
   const ts=projTasks(p.id);const work=ts.filter(t=>!t.phase);
   const starts=work.map(t=>t.start).filter(Boolean).sort(),dues=work.map(t=>t.due).filter(Boolean).sort();
   const tab=S.ptab||'list';
   let h='<div class="page-head"><div><button class="btn ghost sm" data-act="back">‹ '+esc(d.name)+'</button><h1 style="margin-top:4px">'+esc(p.name)+'</h1><div class="sub">'+(p.anchor?'活動／營隊日 '+fmtD(p.anchor)+' · ':'')+(p.owner&&S.members[p.owner]?'專案經理 '+esc(S.members[p.owner].name)+' · ':'')+'更新 '+esc((p.updatedAt||'').slice(0,10))+'</div></div><div class="toolbar">'+(st?'<button class="btn" data-act="reschedule">依前置任務重新排程</button><button class="btn" data-act="editProject">專案設定</button>':'')+'</div></div>';
-  if(p.note)h+='<div class="banner">'+esc(p.note)+'</div>';
+  {const links=(p.links||[]).filter(l=>l&&l.url);if(p.note||links.length)h+='<div class="proj-info">'+(p.note?'<div class="proj-desc">'+linkT(p.note)+'</div>':'')+(links.length?'<div class="proj-links">'+links.map(l=>'<a href="'+esc(l.url)+'" target="_blank" rel="noopener" title="'+esc(l.url)+'">🔗 '+esc(l.label||l.url.replace(/^https?:\/\/(www\.)?/,'').slice(0,30))+'</a>').join('')+'</div>':'')+'</div>';
+    else if(st)h+='<button class="btn ghost sm" data-act="editProject" style="margin:-6px 0 12px">＋ 新增專案說明與雲端連結</button>'}
   h+='<div class="kpis" style="margin-bottom:14px">'+[[pr.total,'任務總數'],[pr.done,'已完成'],[pr.pct+'%','平均完成率'],[starts[0]?fmtD(starts[0]):'—','計畫開始'],[dues.length?fmtD(dues[dues.length-1]):'—','計畫完成'],[pr.over,'逾期任務']].map(([v,l])=>'<div class="kpi"><div class="v" style="font-size:20px">'+esc(v)+'</div><div class="l">'+l+'</div></div>').join('')+'</div>';
   h+='<div class="tabs2" role="tablist">'+[['list','任務清單'],['timeline','時間軸'],['wbs','工作包總覽'],['gantt','甘特圖'],['hours','人員工時']].map(([k,l])=>'<button data-act="ptab" data-v="'+k+'" aria-pressed="'+(tab===k)+'">'+l+'</button>').join('')+'<span style="flex:1"></span><label class="inline" style="padding:6px"><input type="checkbox" data-act="hideDone" '+(S.hideDone?'checked':'')+'> 隱藏已完成</label></div>';
   if(tab==='wbs')return h+viewWbs(p,ts);
@@ -1298,6 +1327,32 @@ async function loadYear(){
   try{const snap=await S.db.collection('comments').where('kind','==','cut').get();yearCache.cuts=snap.docs.map(d=>d.data()).filter(c=>(c.day||'')>=r.from&&(c.day||'')<=r.to)}catch(e){console.error(e)}
   yearCache.loading=false;render();
 }
+/* ---------- 請假／遠距 ---------- */
+const LEAVE_TYPES=[['leave','🌴','請假'],['remote','🏠','遠距辦公'],['comp','🛋️','調休／補休'],['out','🚐','外出／帶營'],['early','⏰','提早離開／晚到'],['other','📌','其他']];
+const LT=Object.fromEntries(LEAVE_TYPES.map(([k,i,l])=>[k,{i,l}]));
+function leaveSubscribe(){if(S.leaveSub)return;S.leaveSub=true;sub('leaves','leaves')}
+function leaveWhen(x){return x.part==='am'?'上午':x.part==='pm'?'下午':x.part==='time'&&(x.from||x.to)?(x.from||'')+'–'+(x.to||''):'全天'}
+function leaveRange(x){const e=x.end||x.start;return e===x.start?fmtD(x.start):fmtD(x.start)+' – '+fmtD(e)}
+function leavesOn(d){return Object.values(S.leaves).filter(x=>x.start&&x.start<=d&&(x.end||x.start)>=d&&S.members[x.memberId])}
+function leaveChip(x,opt={}){const m=S.members[x.memberId];const t=LT[x.type]||LT.other;return '<div class="lv"><span class="lv-t lv-'+esc(x.type||'other')+'">'+t.i+' '+esc(t.l)+'</span>'+avatar(m)+'<b>'+esc(m.name)+'</b><span class="sub">'+(opt.date?esc(leaveRange(x))+'・':'')+esc(leaveWhen(x))+'</span>'+(x.note?'<span class="lv-note">'+linkT(x.note)+'</span>':'')+(opt.del&&(x.memberId===me()?.id||isAdmin())?'<button class="btn ghost sm" data-act="delLeave" data-id="'+esc(x.id)+'" aria-label="刪除這筆登記">刪除</button>':'')+'</div>'}
+function viewLeave(){
+  leaveSubscribe();const m=me();const today=S.date0;
+  let h='<div class="page-head"><div><div class="eyebrow">每個工作天早上 8:50 統一整理到 Slack #attendance-apply</div><h1>請假／遠距</h1></div></div><div class="grid">';
+  if(m&&S.canWrite){const who=isAdmin()?'<select name="who" style="width:auto">'+activeMembers().map(x=>'<option value="'+esc(x.id)+'" '+(x.id===m.id?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>':'';
+    h+=panel('登記',isAdmin()?'可以幫別人登記':'','<form class="panel-b pad leave-form" data-form="leave" novalidate>'+
+      '<div class="field"><span>類型</span><div class="lv-types">'+LEAVE_TYPES.map(([k,i,l],n)=>'<label><input type="radio" name="type" value="'+k+'" '+(n===0?'checked':'')+'><span>'+i+' '+l+'</span></label>').join('')+'</div></div>'+
+      '<div class="form-grid">'+(who?fld('誰',who):'')+fld('從','<input type="date" name="start" value="'+today+'" required>')+fld('到（同一天可不改）','<input type="date" name="end" value="'+today+'">')+'</div>'+
+      '<div class="field"><span>時段</span><div class="lv-types">'+[['full','全天'],['am','上午'],['pm','下午'],['time','指定時間']].map(([k,l],n)=>'<label><input type="radio" name="part" value="'+k+'" data-act="lvPart" '+(n===0?'checked':'')+'><span>'+l+'</span></label>').join('')+'</div><div class="lv-time" hidden><input type="time" name="from" aria-label="開始時間"> – <input type="time" name="to" aria-label="結束時間"></div></div>'+
+      fld('補充說明（選填，大家都看得到）','<input type="text" name="note" maxlength="120" placeholder="例如：急事可傳 LINE、在嘉義帶一日營">')+
+      '<div style="display:flex;justify-content:flex-end"><button class="btn primary" type="submit">送出登記</button></div></form>')}
+  const now=leavesOn(today);
+  h+=panel('今天 '+fmtD(today),now.length?now.length+' 人':'','<div class="panel-b pad">'+(now.length?now.map(x=>leaveChip(x,{del:true})).join(''):'<p class="sub" style="margin:0">今天沒有人請假或遠距 👍</p>')+'</div>');
+  const until=addDays(today,30);const next=Object.values(S.leaves).filter(x=>x.start&&x.start>today&&x.start<=until&&S.members[x.memberId]).sort((a,b)=>a.start.localeCompare(b.start));
+  h+=panel('接下來 30 天',next.length||'','<div class="panel-b pad">'+(next.length?next.map(x=>leaveChip(x,{date:true,del:true})).join(''):'<p class="sub" style="margin:0">還沒有人登記</p>')+'</div>',{wide:true});
+  if(m){const mine=Object.values(S.leaves).filter(x=>x.memberId===m.id&&(x.end||x.start)<today&&(x.end||x.start)>=addDays(today,-60)).sort((a,b)=>b.start.localeCompare(a.start));
+    if(mine.length)h+=panel('我最近的紀錄（60 天內）',mine.length,'<div class="panel-b pad">'+mine.map(x=>leaveChip(x,{date:true})).join('')+'</div>',{wide:true})}
+  return h+'</div>';
+}
 /* ---------- 交換禮物 ---------- */
 async function giftStatus(){try{const {data}=await S.sb.rpc('gift_status');if(data){S.giftStat=data;render()}}catch(e){console.error(e)}}
 function giftSubscribe(){if(S.giftSub)return;S.giftSub=true;giftStatus();S.db.collection('gifts').onSnapshot(s=>{s.docChanges().forEach(c=>{if(c.type==='removed')delete S.gifts[c.doc.id];else S.gifts[c.doc.id]={id:c.doc.id,...c.doc.data()}});giftStatus();render()},err);S.db.collection('gift_draws').onSnapshot(s=>{const d=s.docs[0];S.giftDraw=d?d.data():null;render()},err)}
@@ -1405,7 +1460,7 @@ function saveRich(key){
   if(kind==='task'){const t=S.tasks[id];if(t&&(t.notesHtml||'')!==html){S.tasks[id]={...t,notesHtml:html};W(S.db.doc('tasks/'+id).update({notesHtml:html,updatedAt:nowISO()}))}}
 }
 document.addEventListener('paste',e=>{
-  const ti=e.target.closest&&e.target.closest('input[data-tdnew],input[data-tdedit],input[data-tdf="title"]');
+  const ti=e.target.closest&&e.target.closest('input[data-tdnew],input[data-tdedit],input[data-tdf="title"],textarea#p-note');
   if(ti){const u=okUrl((e.clipboardData.getData('text/plain')||'').trim());const a=ti.selectionStart,z=ti.selectionEnd;
     if(u&&a!==z){e.preventDefault();const sel=ti.value.slice(a,z).replace(/[\[\]]/g,'');document.execCommand('insertText',false,'['+sel+']('+u+')')||ti.setRangeText('['+sel+']('+u+')',a,z,'end');}
     return}
@@ -1525,7 +1580,8 @@ function drawOverlay(soft){
       fld(edit?'追加 WBS 範本任務（選填）':'套用 WBS 範本（選填）','<select id="p-tpl" name="tpl" data-act="tplPick"><option value="">不套用</option>'+groups+'</select>','<span id="tplHint">選擇範本後，這裡會說明期限怎麼計算。</span>')+
       fld('參與成員（委外夥伴只看得到自己參與的專案）','<div style="display:flex;flex-wrap:wrap;gap:10px">'+activeMembers().map(m=>'<label class="inline"><input type="checkbox" name="members" value="'+esc(m.id)+'" '+((p.members||[]).includes(m.id)?'checked':'')+'> '+esc(m.name)+'</label>').join('')+'</div>')+
       fld('Slack 頻道','<div style="display:flex;flex-direction:column;gap:4px">'+channelSelect(p.slackChannel||'','slackChannel')+'</div>','插隊、等待主管決策、Pending 追蹤都會發到這裡')+
-      fld('備註','<textarea id="p-note" name="note" rows="2">'+esc(p.note||'')+'</textarea>')+
+      fld('專案說明','<textarea id="p-note" name="note" rows="4" placeholder="專案目標、重要資訊⋯⋯">'+esc(p.note||'')+'</textarea>','選取文字後貼上網址，那段文字就會變成連結')+
+      fld('相關連結（例如雲端資料夾、企劃書）','<div id="plinks">'+[...(p.links||[]),{label:'',url:''}].map(l=>plinkRow(l)).join('')+'</div><button type="button" class="btn ghost sm" data-act="plinkAdd">＋ 再加一個連結</button>','左邊填顯示的文字，例如「雲端資料夾」，點了就會打開右邊的網址')+
       '<div class="toolbar" style="justify-content:flex-end">'+(edit&&S.confirmDel==='p:'+p.id?'<span class="sub">刪除專案與所有任務？</span><button type="button" class="btn danger" data-act="delProject">確定刪除</button>':edit?'<button type="button" class="btn ghost danger" data-act="askDelProject">刪除專案</button>':'')+'<span style="flex:1"></span><button type="button" class="btn" data-act="close">取消</button><button class="btn primary" type="submit" '+(S.canWrite?'':'disabled')+'>'+(edit?'儲存':'建立專案')+'</button></div></form>';
     return;
   }
@@ -1724,6 +1780,9 @@ document.addEventListener('click',async e=>{
     case 'wkPrev':S.mineWeek=addDays(S.mineWeek||S.date0,-7);render();break;
     case 'wkNext':S.mineWeek=addDays(S.mineWeek||S.date0,7);render();break;
     case 'theme':{const i=THEMES.findIndex(x=>x[0]===curTheme());const nx=THEMES[(i+1)%THEMES.length][0];if(nx)document.documentElement.dataset.theme=nx;else delete document.documentElement.dataset.theme;try{nx?localStorage.setItem('jj-theme',nx):localStorage.removeItem('jj-theme')}catch(_){}drawWho();toast('外觀：'+THEMES[(i+1)%THEMES.length][2]);break}
+    case 'delLeave':{if(!confirm('刪除這筆登記？'))break;W(S.db.doc('leaves/'+id).delete(),'已刪除');break}
+    case 'plinkAdd':{const box=document.getElementById('plinks');if(box)box.insertAdjacentHTML('beforeend',plinkRow({}));break}
+    case 'plinkDel':{const r=a.closest('.plink-row');const box=document.getElementById('plinks');if(r&&box&&box.children.length>1)r.remove();else if(r)r.querySelectorAll('input').forEach(i=>i.value='');break}
     case 'wkToday':S.mineWeek=S.date0;render();break;
     case 'tdAdd':S.tdAdd=a.dataset.day;S.tdEdit=null;render();setTimeout(()=>document.getElementById('td-new')?.focus(),30);break;
     case 'tdEdit':S.tdEdit=id;S.tdAdd=null;render();setTimeout(()=>{const f=document.getElementById('td-edit');if(f){f.focus();f.select()}},30);break;
@@ -1770,6 +1829,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.recf){setRecField(el.dataset.rkind,el.dataset.id,el.dataset.recf,el.value);return}
   if(el.dataset.act==='mineWho'){S.mineWho=el.value;render();return}
   if(el.dataset.act==='giftWho'){const c=S.gifts.config;if(!c||c.drawn)return;const set=new Set(c.participants||[]);el.checked?set.add(el.dataset.id):set.delete(el.dataset.id);W(S.db.doc('gifts/config').update({participants:[...set]}),'名單已更新');return}
+  if(el.dataset.act==='lvPart'){const t=el.closest('form').querySelector('.lv-time');if(t)t.hidden=el.value!=='time';return}
   if(el.dataset.act==='wkNoDate'){S.wkNoDate=el.checked;try{localStorage.setItem('jj-wknodate',el.checked?'1':'0')}catch(_){}render();return}
   if(el.dataset.act==='wkStart'){S.wkStart=Number(el.value);try{localStorage.setItem('jj-wkstart',el.value)}catch(_){}render();return}
   if(el.dataset.act==='wkCols'){S.wkCols=Number(el.value);try{localStorage.setItem('jj-wkcols',el.value)}catch(_){}render();return}
@@ -1809,6 +1869,9 @@ document.addEventListener('submit',async e=>{
   const f=e.target;if(!f.dataset.form)return;e.preventDefault();
   const fd=new FormData(f);
   if(f.dataset.form==='cmt'){const text=String(fd.get('text')||'').trim();if(!text){toast('請先輸入留言內容');return}const sb=f.querySelector('button[type=submit]');if(sb){sb.disabled=true;sb.textContent='送出中…'}const m=me();const ok=await W(S.db.collection('comments').add({target:f.dataset.target,day:f.dataset.day||S.date0,text,kind:fd.get('cut')?'cut':'note',byMember:m?.id||'',byUid:S.uid||'',at:localISO(),resolved:false}),fd.get('cut')?'已送出插隊請求':'已留言');if(sb){sb.disabled=false;sb.textContent='送出'}if(ok){if(fd.get('cut'))slackCut(f.dataset.target,text);f.reset()}return}
+  if(f.dataset.form==='leave'){const m=me();if(!m)return;const start=String(fd.get('start')||'');let end=String(fd.get('end')||'')||start;if(!start){toast('請選日期');return}if(end<start){toast('結束日不能早於開始日');return}
+    const part=String(fd.get('part')||'full');const data={memberId:isAdmin()&&fd.get('who')?String(fd.get('who')):m.id,type:String(fd.get('type')||'leave'),start,end,part,from:part==='time'?String(fd.get('from')||''):'',to:part==='time'?String(fd.get('to')||''):'',note:String(fd.get('note')||'').trim(),by:m.id,createdAt:nowISO(),updatedAt:nowISO()};
+    if(await W(S.db.collection('leaves').add(data),'已登記 '+(LT[data.type]||LT.other).l+'：'+leaveRange(data)))render();return}
   if(f.dataset.form==='gift'){const m=me();if(!m)return;const adjs=[0,1,2].map(k=>String(fd.get('adj'+k)||'').trim());if(adjs.filter(Boolean).length<3){toast('請填滿三個形容詞 🎁');return}const data={memberId:m.id,adjs,wish:adjs.join('、'),avoid:String(fd.get('avoid')||'').trim(),updatedAt:nowISO()};await W(S.db.doc('gifts/'+m.id).set(data),'願望已儲存 🎁');giftStatus();return}
   if(f.dataset.form==='link'){const q=String(fd.get('q')||'').trim();if(!q)return;const u=safeUrl(q);if(u){await addLink(f.dataset.id,{title:u.replace(/^https:\/\//,'').slice(0,60),url:u});return}if(!S.mcp){toast('請貼上以 https:// 開頭的網址');return}driveSearch(q);return}
   if(f.dataset.form==='manual'){const mid=f.dataset.id;const data={};MANUAL.forEach(([k])=>data[k]=String(fd.get(k)||'').trim());const bm=String(fd.get('bm')||''),bd=String(fd.get('bd')||'');data.birthday=bm&&bd?bm+'-'+bd:'';data.mbti=String(fd.get('mbti')||'');const kin=Number(fd.get('kin'));data.kin=kin>=1&&kin<=260?kin:null;data.updatedAt=nowISO();const ok=await W(S.db.doc('manuals/'+mid).set(data),'說明書已儲存');if(ok){S.modal='viewManual';drawOverlay()}return}
@@ -1819,7 +1882,7 @@ document.addEventListener('submit',async e=>{
     for(const x of xs){const nm=x.dataset.name.replace(/^[a-z][0-9]*[-_.]/i,'')||x.dataset.name;const id='p_'+Date.now().toString(36)+uid8().slice(0,3);if(await W(S.db.doc('projects/'+id).set({name:nm,dept:x.dataset.dept,slackChannel:x.value,slackChannelName:x.dataset.name,status:'active',owner:'',members:[],note:'從 Slack 頻道 #'+x.dataset.name+' 建立',createdAt:nowISO(),updatedAt:nowISO()})))n++}
     toast('已建立 '+n+' 個專案');closeOverlay();return}
   if(f.dataset.form==='project'){
-    const edit=S.modal==='editProject';const data={name:String(fd.get('name')).trim(),dept:String(fd.get('dept')),owner:String(fd.get('owner')||''),anchor:String(fd.get('anchor')||''),members:fd.getAll('members').map(String),note:String(fd.get('note')||'').trim(),slackChannel:String(fd.get('slackChannel')||'').trim(),slackChannelName:chName(String(fd.get('slackChannel')||'').trim())||'',updatedAt:nowISO()};
+    const edit=S.modal==='editProject';const data={name:String(fd.get('name')).trim(),dept:String(fd.get('dept')),owner:String(fd.get('owner')||''),anchor:String(fd.get('anchor')||''),members:fd.getAll('members').map(String),note:String(fd.get('note')||'').trim(),links:fd.getAll('lkUrl').map((u,i)=>({label:String(fd.getAll('lkLabel')[i]||'').trim(),url:okUrl(String(u).trim())||''})).filter(l=>l.url),slackChannel:String(fd.get('slackChannel')||'').trim(),slackChannelName:chName(String(fd.get('slackChannel')||'').trim())||'',updatedAt:nowISO()};
     const tpl=String(fd.get('tpl')||'');const T=S.templates[tpl];
     if(T&&T.timed&&!data.anchor){toast('這個範本需要先填「'+T.anchorLabel+'」');return}
     f.querySelector('button[type=submit]').disabled=true;
