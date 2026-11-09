@@ -27,10 +27,10 @@ jobs:
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::還沒設定 GitHub Secret：SUPABASE_ACCESS_TOKEN"; exit 1; }
           # 排程用的通行碼由存取權杖推導，不需要另外設定
           CRON_SECRET=$(printf '%s' "$SUPABASE_ACCESS_TOKEN:vwsi-cron" | sha256sum | cut -c1-48)
-          supabase secrets set --project-ref "$PROJECT_REF" CRON_SECRET="$CRON_SECRET"
+          supabase secrets set --yes --project-ref "$PROJECT_REF" CRON_SECRET="$CRON_SECRET"
           supabase functions deploy notify   --project-ref "$PROJECT_REF" --use-api --no-verify-jwt   # 函式內自行驗證登入
-          supabase functions deploy calendar --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
-          supabase functions deploy slack-channels --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
-          supabase functions deploy followup --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
-          supabase functions deploy gift --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
-          supabase functions deploy attendance --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
+          supabase functions deploy calendar --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
+          supabase functions deploy slack-channels --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
+          supabase functions deploy followup --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
+          supabase functions deploy gift --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
+          supabase functions deploy attendance --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
