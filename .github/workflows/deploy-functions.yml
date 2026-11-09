@@ -28,7 +28,7 @@ jobs:
           # 排程用的通行碼由存取權杖推導，不需要另外設定
           CRON_SECRET=$(printf '%s' "$SUPABASE_ACCESS_TOKEN:vwsi-cron" | sha256sum | cut -c1-48)
           supabase secrets set --yes --project-ref "$PROJECT_REF" CRON_SECRET="$CRON_SECRET"
-          supabase functions deploy notify   --project-ref "$PROJECT_REF" --use-api --no-verify-jwt   # 函式內自行驗證登入
+          supabase functions deploy notify   --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes   # 函式內自行驗證登入
           supabase functions deploy calendar --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
           supabase functions deploy slack-channels --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
           supabase functions deploy followup --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
