@@ -5,6 +5,7 @@
 import { cors, json } from '../_shared/slack.ts';
 import { googleToken } from '../_shared/google.ts';
 import { memberClient } from '../_shared/auth.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
 const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const memo = new Map<string, { at: number; body: unknown }>();
@@ -29,13 +30,41 @@ async function freeBusy(token: string, cals: string[], from: string, to: string)
   return (j.calendars ?? {}) as Record<string, { busy?: { start: string; end: string }[]; errors?: { reason: string }[] }>;
 }
 
+// 服務帳號的日曆清單（分享給 vwsi-bot 並登記過的日曆）
+async function calList(token: string) {
+  const r = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250', { headers: { Authorization: `Bearer ${token}` } });
+  const j = await r.json().catch(() => ({}));
+  return ((j.items ?? []) as { id: string; summary?: string; summaryOverride?: string; backgroundColor?: string; accessRole?: string; primary?: boolean }[])
+    .filter((c) => !c.primary && !String(c.id).endsWith('.iam.gserviceaccount.com'));
+}
+async function calInsert(token: string, id: string) {
+  const r = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+  return { status: r.status, j: await r.json().catch(() => ({})) };
+}
+const COMPANY = () => Deno.env.get('COMPANY_CALENDAR_ID') || 'vwsi.campmanagement@gmail.com';
+// 公司相關日曆：公司帳號主日曆 + 服務帳號清單裡標記為公司的（名稱或 ID 登記在 company_cals）
+const PALETTE = ['#2f6fb3', '#c7882b', '#3b8b5a', '#8a5bb3', '#b34a4a', '#2b8a8a', '#6b7a8a'];
+
 const toLocal = (iso: string) => new Date(new Date(iso).getTime() + 8 * 3600e3).toISOString().slice(0, 19) + '+08:00';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const cronKey = req.headers.get('x-cron-secret');
+  if (cronKey) {
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+    const { data: okSecret } = await admin.rpc('check_cron_secret', { s: cronKey });
+    if (!okSecret) return json({ ok: false, error: 'forbidden' }, 403);
+    const body = await req.json().catch(() => ({}));
+    const token = await googleToken(SCOPE);
+    const today = new Date().toISOString().slice(0, 10);
+    const probe = await Promise.all(((body.probe ?? []) as string[]).slice(0, 30).map(async (id) => { const r = await listEvents(token, id, today, today); return { id, status: r.status, name: r.j?.summary }; }));
+    const added = [];
+    for (const id of (body.add ?? []) as string[]) { const r = await calInsert(token, id); added.push({ id, status: r.status }); }
+    return json({ ok: true, list: (await calList(token)).map((c) => ({ id: c.id, name: c.summary, role: c.accessRole })), probe, added });
+  }
   const who = await memberClient(req);
   if (!who) return json({ ok: false, error: 'not_member' }, 403);
-  let q: { from?: string; to?: string; mode?: string; ids?: string[] } = {};
+  let q: { from?: string; to?: string; mode?: string; ids?: string[]; id?: string; probe?: string[] } = {};
   try { q = await req.json(); } catch { /* 預設 */ }
   const from = dOk(q.from) || new Date().toISOString().slice(0, 10);
   const to = dOk(q.to) || new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
@@ -43,6 +72,22 @@ Deno.serve(async (req) => {
   try {
     const token = await googleToken(SCOPE);
 
+    if (q.mode === 'addCal' || q.mode === 'removeCal') {
+      const { data: admin } = await who.sb.rpc('is_admin');
+      if (!admin) return json({ ok: false, error: 'admin_only' }, 403);
+      const id = String(q.id || '').trim();
+      if (!id || id.length > 200) return json({ ok: false, error: 'bad_id' }, 400);
+      if (q.mode === 'removeCal') {
+        const r = await fetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        memo.clear();
+        return json({ ok: r.status === 204 || r.status === 404 });
+      }
+      const t = await listEvents(token, id, from, from);
+      if (t.status !== 200) return json({ ok: false, error: t.status === 404 || t.status === 403 ? 'not_shared' : 'google_error' });
+      const ins = await calInsert(token, id);
+      memo.clear();
+      return json({ ok: ins.status === 200, name: t.j?.summary || id, error: ins.status === 200 ? undefined : ins.j?.error?.message });
+    }
     if (q.mode === 'members') {
       const { data: staff } = await who.sb.rpc('is_staff');
       const { data: rows } = await who.sb.from('members').select('id,data');
@@ -88,16 +133,20 @@ Deno.serve(async (req) => {
       return json(body);
     }
 
-    const cal = Deno.env.get('COMPANY_CALENDAR_ID') || 'vwsi.campmanagement@gmail.com';
-    const key = 'c:' + cal + from + to;
+    const main = COMPANY();
+    const listed = await calList(token);
+    const cals = [{ id: main, name: '' }, ...listed.filter((c) => c.id !== main).map((c) => ({ id: c.id, name: c.summaryOverride || c.summary || c.id }))];
+    if (q.mode === 'cals') return json({ ok: true, calendars: cals.map((c, i) => ({ ...c, color: PALETTE[i % PALETTE.length] })) });
+    const key = 'c:' + cals.map((c) => c.id).join(',') + from + to;
     const hit = memo.get(key);
     if (hit && Date.now() - hit.at < 120_000) return json(hit.body);
-    const { status, j } = await listEvents(token, cal, from, to);
-    if (status !== 200) return json({ ok: false, error: status === 404 || status === 403 ? 'not_shared' : 'google_error', detail: j?.error?.message }, 502);
-    const events = (j.items ?? []).filter((e: { status?: string }) => e.status !== 'cancelled').map((e: Record<string, unknown>) => ({
-      summary: e.summary, start: e.start, end: e.end, location: e.location, htmlLink: e.htmlLink,
-    }));
-    const body = { ok: true, events };
+    const res = await Promise.all(cals.map((c) => listEvents(token, c.id, from, to)));
+    if (res[0].status !== 200 && res.every((r) => r.status !== 200)) return json({ ok: false, error: res[0].status === 404 || res[0].status === 403 ? 'not_shared' : 'google_error', detail: res[0].j?.error?.message }, 502);
+    const calendars = cals.map((c, i) => ({ id: c.id, name: c.name || res[i].j?.summary || c.id, color: PALETTE[i % PALETTE.length], ok: res[i].status === 200 }));
+    const events = res.flatMap((r, i) => r.status !== 200 ? [] : (r.j.items ?? []).filter((e: { status?: string }) => e.status !== 'cancelled').map((e: Record<string, unknown>) => ({
+      summary: e.summary, start: e.start, end: e.end, location: e.location, htmlLink: e.htmlLink, cal: cals[i].id,
+    })));
+    const body = { ok: true, events, calendars };
     memo.set(key, { at: Date.now(), body });
     return json(body);
   } catch (e) {
