@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-03a">
+<meta name="app-ver" content="2026-11-10a">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -439,6 +439,10 @@ a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;ov
 .tb td.who{display:table-cell}
 .tb td.num,.tb th.num{min-width:64px;text-align:right}
 .td.calev{border-left:3px solid var(--c-meet);background:var(--surface-2);cursor:default}
+.calchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}
+.calchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--surface);font-size:13px;cursor:pointer;color:var(--ink)}
+.calchip i{width:10px;height:10px;border-radius:3px}
+.calchip[aria-pressed="false"]{opacity:.45;text-decoration:line-through}
 .td.coev{border-left:3px solid var(--yellow);background:var(--surface-2);cursor:default}
 .td.calev .sub2,.td.coev .sub2{font-family:var(--f-mono)}
 .titem.cal{border-left:3px solid var(--c-meet);background:var(--surface-2);cursor:default}
@@ -668,7 +672,7 @@ const TONES = ['磁性','月亮','電力','自我存在','超頻','韻律','共�
 function kinName(k){k=Number(k);if(!k||k<1||k>260)return '';return TONES[(k-1)%13]+'的'+SEALS[(k-1)%20]}
 function zodiac(md){if(!md)return '';const [m,d]=md.split('-').map(Number);const z=[[1,20,'摩羯座'],[2,19,'水瓶座'],[3,21,'雙魚座'],[4,20,'牡羊座'],[5,21,'金牛座'],[6,22,'雙子座'],[7,23,'巨蟹座'],[8,23,'獅子座'],[9,23,'處女座'],[10,24,'天秤座'],[11,23,'天蠍座'],[12,22,'射手座'],[12,32,'摩羯座']];for(const [mm,dd,n] of z){if(m<mm||(m===mm&&d<dd))return n}return '摩羯座'}
 const HOURS_PER_DAY=8;
-const COMPANY_CAL='vwsi.campmanagement@gmail.com';
+const COMPANY_CAL='vwsi.campmanagement@gmail.com';const BOT_SA='vwsi-bot@vwsi-dashboard.iam.gserviceaccount.com';
 function illo(n,cls){return '<img class="illo '+(cls||'')+'" src="img/ip-'+n+'.webp" alt="" aria-hidden="true">'}
 function emptyIllo(n,t){return '<div class="empty-illo">'+illo(n)+'<span>'+t+'</span></div>'}
 const MANUAL = [
@@ -896,7 +900,7 @@ function widget(w){
     const vis=visibleProjectIds();const ps=Object.values(S.projects).filter(p=>vis.has(p.id)&&p.anchor&&p.anchor>=S.date0&&diffDays(p.anchor,S.date0)<=60).sort((a,b)=>a.anchor.localeCompare(b.anchor));
     return panel('近期里程碑',ps.length+' 個',ps.map(p=>'<div class="row click" data-act="openProject" data-id="'+esc(p.id)+'"><span class="dept-dot" style="background:'+esc(deptOf(p.dept).color)+'"></span><div class="main"><div class="t">'+esc(p.name)+'</div><div class="meta">'+esc(deptOf(p.dept).name)+'</div></div><span class="due">'+fmtD(p.anchor)+' · 還有 '+diffDays(p.anchor,S.date0)+' 天</span></div>').join('')||empty('60 天內沒有活動或營隊日期。'));
   }
-  if(w==='company'){loadCompany();return panel('公司行事曆','未來兩週',companyList(14))}
+  if(w==='company'){loadCompany();return panel('公司行事曆','未來兩週',(calChips()?'<div style="padding:8px 12px 0">'+calChips()+'</div>':'')+companyList(14))}
   if(w==='hours'){return panel('每日工時負荷','未來兩週','<div class="panel-b pad" style="overflow-x:auto">'+heatmap(visibleMembers(),S.date0,14)+'</div><div class="legend"><span><i class="hc1"></i>&lt;80%</span><span><i class="hc2"></i>80–100%</span><span><i class="hc3"></i>100–120% 加班</span><span><i class="hc4"></i>&gt;120%</span><span>包含專案任務（有填工作天數與每天時數）和個人待辦的預估時數</span></div>',{wide:true})}
   if(w==='birthdays'){const mo=S.date0.slice(5,7);const l=visibleMembers().map(m=>({m,b:S.manuals[m.id]?.birthday})).filter(x=>x.b&&x.b.slice(0,2)===mo).sort((a,b)=>a.b.localeCompare(b.b));return panel('本月壽星',l.length+' 位',l.map(x=>'<div class="row click" data-act="viewManual" data-id="'+esc(x.m.id)+'">'+avatar(x.m)+'<div class="main"><div class="t">'+esc(x.m.name)+'</div><div class="meta"><span>'+esc(zodiac(x.b))+'</span></div></div><span class="due">'+Number(x.b.slice(0,2))+'/'+Number(x.b.slice(3))+'</span></div>').join('')||emptyIllo(3,'這個月沒有壽星。到夥伴說明書填上生日吧！'))}
   if(w==='goals'){
@@ -1000,16 +1004,20 @@ function mcpMsg(e,server){const c=e&&e.code;if(c==='server_not_connected')return
 function evWhen(e){const sd=e.start?.dateTime?e.start.dateTime.slice(0,10):(e.start?.date||'').slice(0,10);const tm=e.start?.dateTime?e.start.dateTime.slice(11,16)+'–'+(e.end?.dateTime||'').slice(11,16):'整天';return [sd,tm]}
 async function loadCompanyRange(from,to,force){if(!S.sb)return;const key=from+to;const c=S.compR;if(!force&&c&&c.key===key&&(c.loading||Date.now()-c.at<300000))return;
   S.compR={key,loading:true,at:Date.now(),events:(c&&c.key===key&&c.events)||[]};
-  try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{from,to}});let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}S.compR={key,at:Date.now(),events:r&&r.ok?r.events:[],error:r&&r.ok?'':'error'}}
+  try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{from,to}});let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}S.compR={key,at:Date.now(),events:r&&r.ok?r.events:[],error:r&&r.ok?'':'error'};if(r&&r.calendars)S.compCals=r.calendars}
   catch(e){S.compR={key,at:Date.now(),events:[],error:'error'}}
   render();
 }
-function companyOn(d){const L=(S.compR&&S.compR.events)||[];return L.filter(e=>{const r=evRange(e);if(r.allDay)return r.sd<=d&&d<r.ed;return r.s.slice(0,10)<=d&&d<=r.e.slice(0,10)})}
+function calHidden(){if(!S.calHide){let v=[];try{v=JSON.parse(localStorage.getItem('jj-calhide')||'[]')}catch(_){}S.calHide=new Set(Array.isArray(v)?v:[])}return S.calHide}
+function calShown(e){return !e.cal||!calHidden().has(e.cal)}
+function calColor(id){const c=(S.compCals||[]).find(x=>x.id===id);return c?c.color:'var(--yellow)'}
+function calChips(){const L=S.compCals||[];if(L.length<2)return '';return '<div class="calchips" role="group" aria-label="要顯示的公司日曆"><span class="sub">公司日曆：</span>'+L.map(c=>{const on=!calHidden().has(c.id);return '<button type="button" class="calchip" data-act="calToggle" data-id="'+esc(c.id)+'" aria-pressed="'+on+'" title="'+(on?'點一下隱藏':'點一下顯示')+'"><i style="background:'+esc(c.color)+'"></i>'+esc(c.name)+'</button>'}).join('')+'</div>'}
+function companyOn(d){const L=((S.compR&&S.compR.events)||[]).filter(calShown);return L.filter(e=>{const r=evRange(e);if(r.allDay)return r.sd<=d&&d<r.ed;return r.s.slice(0,10)<=d&&d<=r.e.slice(0,10)})}
 function companyList(days,onlyDay){
   const c=S.company;
   if(!c||c.loading)return empty('讀取公司行事曆中…');
   if(c.error)return '<div class="empty">'+esc(c.error)+(c.retry?'<div style="margin-top:6px"><button class="btn sm" data-act="companyRetry">允許並重新讀取</button></div>':'')+'</div>';
-  let ev=c.events.filter(e=>{const [d]=evWhen(e);return onlyDay?d===onlyDay:d<=addDays(S.date0,days-1)});
+  let ev=c.events.filter(calShown).filter(e=>{const [d]=evWhen(e);return onlyDay?d===onlyDay:d<=addDays(S.date0,days-1)});
   if(!ev.length)return empty(onlyDay?'今天公司行事曆沒有事項。':'未來兩週沒有事項。');
   let last='';return ev.map(e=>{const [d,tm]=evWhen(e);const u=safeUrl(e.htmlLink);const head=!onlyDay&&d!==last?'<div class="phase" style="font-size:12px">'+(d===S.date0?'今天 ':d===addDays(S.date0,1)?'明天 ':'')+fmtD(d)+'</div>':'';last=d;return head+'<div class="row"><span class="mono hint" style="width:86px;flex:none">'+esc(tm)+'</span><div class="main"><div class="t">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:inherit">'+esc(e.summary||'（無標題）')+'</a>':esc(e.summary||'（無標題）'))+'</div>'+(e.location?'<div class="meta"><span>'+esc(e.location)+'</span></div>':'')+'</div></div>'}).join('');
 }
@@ -1018,7 +1026,7 @@ async function loadCompany(force){
   S.company={loading:true,at:Date.now()};
   try{const {data,error}=await S.sb.functions.invoke('calendar',{body:{from:S.date0,to:addDays(S.date0,14)}});
     let d=data;if(error){try{d=await error.context.json()}catch(_){d={error:'network'}}}
-    if(d&&d.ok)S.company={events:d.events||[],at:Date.now()};
+    if(d&&d.ok){S.company={events:d.events||[],at:Date.now()};if(d.calendars)S.compCals=d.calendars}
     else{const c=d&&d.error;S.company={at:Date.now(),error:c==='not_shared'?'公司行事曆還沒分享給 vwsi-bot：請到 Google 日曆把 '+COMPANY_CAL+' 分享給服務帳號（查看所有活動詳細資料）。':c==='missing_sa'||c==='bad_sa'?'Supabase 還沒設定好 GOOGLE_SA_JSON（服務帳號金鑰）。':c==='sa_auth_failed'?'服務帳號金鑰無法使用，請重新產生並更新 GOOGLE_SA_JSON。':c==='not_member'?'你的帳號不在名單裡。':'公司行事曆暫時讀不到，請稍後重新整理。'}}}
   catch(e){console.warn(e);S.company={at:Date.now(),error:'公司行事曆暫時讀不到，請稍後重新整理。'}}
   render();
@@ -1170,7 +1178,7 @@ function viewMine(){
     const span=isNo||isWeekend(day)?[]:projT.filter(t=>isOpen(t)&&t.start&&t.start<=day&&day<t.due);
     const ghost=isNo||day<=S.date0?[]:projT.filter(t=>isOpen(t)&&recOf(t)&&t.due<day&&occursOn(recOf(t),t.recBase||t.due,day));
     let c='<div class="col'+(day===S.date0?' today':'')+(isNo?' nodate':'')+'" data-day="'+day+'"><div class="dh">'+(isNo?'<span class="w">'+label+'</span><span style="font-weight:700">'+(list.filter(x=>!x.done).length+undT.length)+' 項</span>':'<span class="w">'+label+'</span><span class="n">'+Number(day.slice(8))+'</span>')+'</div><div class="items">';
-    if(!isNo){c+=companyOn(day).map(e=>{const l=evLabel(e,day);return '<div class="td coev" title="公司行事曆"><div style="min-width:0;flex:1"><div class="tt">🏢 '+esc(e.summary||'（無標題）')+'</div><div class="sub2">'+esc(l.tm)+(e.location?'・'+esc(e.location):'')+'</div></div></div>'}).join('');
+    if(!isNo){c+=companyOn(day).map(e=>{const l=evLabel(e,day);return '<div class="td coev" title="'+esc(((S.compCals||[]).find(x=>x.id===e.cal)||{}).name||'公司行事曆')+'" style="border-left-color:'+esc(calColor(e.cal))+'"><div style="min-width:0;flex:1"><div class="tt">🏢 '+esc(e.summary||'（無標題）')+'</div><div class="sub2">'+esc(l.tm)+(e.location?'・'+esc(e.location):'')+'</div></div></div>'}).join('');
       c+=memberEvents(who.id,day).map(e=>{const l=evLabel(e,day);return '<div class="td calev" title="'+(self?'我的':esc(who.name)+'的')+'行事曆"><div style="min-width:0;flex:1"><div class="tt">📅 '+esc(l.title)+'</div><div class="sub2">'+esc(l.tm)+(l.loc?'・'+esc(l.loc):'')+'</div></div></div>'}).join('')}
     c+=span.map(t=>'<div class="td span" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">進行中・到 '+fmtD(t.due).split(' ')[0]+'</div></div></div>').join('');
     c+=ghost.map(t=>'<div class="td ghost" data-act="openTask" data-id="'+esc(t.id)+'" title="完成這一次後會自動建立"><div style="min-width:0;flex:1"><div class="tt">🔁 '+esc(t.title)+'</div><div class="sub2">預定・'+esc(recLabel(recOf(t),t.recBase||t.due))+'</div></div></div>').join('');
@@ -1180,6 +1188,7 @@ function viewMine(){
     c+=list.map(x=>S.tdEdit===x.id&&self?'<div class="td"><input type="text" id="td-edit" data-tdedit="'+esc(x.id)+'" value="'+esc(x.title)+'" maxlength="1000" style="padding:4px 6px"></div>':'<div class="td'+(x.done?' done':'')+'" draggable="'+(self&&!recOf(x)?'true':'false')+'" data-todo="'+esc(x.id)+'"><input type="checkbox" data-act="tdDone" data-id="'+esc(x.id)+'" data-day="'+day+'" '+(x.done?'checked':'')+' '+(self?'':'disabled')+' aria-label="完成" style="margin-top:2px"><span class="tt" data-act="tdOpen" data-id="'+esc(x.id)+'" data-day="'+day+'" title="點一下看詳情" style="cursor:pointer">'+linkT(x.title)+((recOf(x)||x.hours||(x.subs||[]).length||x.notes)?'<span class="meta2">'+(recOf(x)?'<span class="rec-tag">🔁 '+esc(recLabel(recOf(x),x.date))+'</span>':'')+(x.hours?'<span>⏱ '+x.hours+'h</span>':'')+((x.subs||[]).length?'<span>☑ '+x.subs.filter(z=>z.done).length+'/'+x.subs.length+'</span>':'')+(x.notes?'<span>📝</span>':'')+'</span>':'')+'</span>'+(self?'<span class="ctl">'+(day===S.date0&&!x.done?'<button data-act="tdToDm" data-id="'+esc(x.id)+'" title="排進今天的三件事">★</button>':'')+'<button data-act="tdDel" data-id="'+esc(x.id)+'" title="刪除" aria-label="刪除">✕</button></span>':'')+'</div>').join('');
     if(self)c+=S.tdAdd===day?'<input type="text" id="td-new" data-tdnew="'+day+'" placeholder="輸入後按 Enter" maxlength="1000" style="padding:6px 8px;font-size:13px">':'<button class="add" data-act="tdAdd" data-day="'+day+'">＋ 新增待辦</button>';
     return c+'</div></div>'};
+  h+=calChips();
   h+='<div class="wk'+(wkCols()===1?' v':wkCols()<8?' g c'+wkCols():'')+(wkNoDate()?'':' nond')+'">'+days.map(d=>col(d,'週'+'日一二三四五六'[parseD(d).getDay()])).join('')+(wkNoDate()?col('','無日期'):'')+'</div>';
   return h;
 }
@@ -1414,6 +1423,7 @@ function viewSettings(){
   let h='<div class="page-head"><div><div class="eyebrow">名單、部門與範本</div><h1>設定</h1></div></div><div class="grid">';
   const rows=ms.map(m=>{const self=my&&my.id===m.id;const canPic=S.assets&&(adm||self);return '<tr><td>'+(canPic?'<button class="btn ghost sm" data-act="pickAvatar" data-id="'+esc(m.id)+'" title="更換頭貼" style="padding:0">'+avatar(m)+'</button>':avatar(m))+'</td><td><input type="text" aria-label="姓名" data-mfield="name" data-id="'+esc(m.id)+'" value="'+esc(m.name)+'" '+dis+'></td><td><input type="text" aria-label="職稱" data-mfield="role" data-id="'+esc(m.id)+'" value="'+esc(m.role||'')+'" '+dis+'></td><td><select aria-label="部門" data-mfield="dept" data-id="'+esc(m.id)+'" '+dis+'>'+ds.map(d=>'<option value="'+esc(d.id)+'" '+(d.id===m.dept?'selected':'')+'>'+esc(d.name)+'</option>').join('')+'</select></td><td><select aria-label="身分" data-mfield="kind" data-id="'+esc(m.id)+'" '+dis+'>'+KINDS.map(k=>'<option '+(k===m.kind?'selected':'')+'>'+k+'</option>').join('')+'</select></td><td><span class="perm '+roleOf(m)+'">'+ROLE_LABEL[roleOf(m)]+'</span></td><td><label class="inline"><input type="checkbox" data-mfield="active" data-id="'+esc(m.id)+'" '+(m.active!==false?'checked':'')+' '+dis+'> 在職</label></td><td>'+(adm?'<input type="text" inputmode="email" autocomplete="off" aria-label="登入 Email" data-mfield="email" data-id="'+esc(m.id)+'" value="'+esc(m.email||'')+'" placeholder="name@vwsicamp.com" style="min-width:190px">':'<span class="hint">'+esc(m.email||'—')+'</span>')+'</td><td>'+(m.uid?(m.uid===S.uid?'<span class="pill s-done">我</span>':'<span class="pill s-doing">已登入過</span>')+(adm&&m.uid!==S.uid?' <button class="btn ghost sm" data-act="unclaim" data-id="'+esc(m.id)+'" title="換 Google 帳號時使用">解除</button>':''):'<span class="hint">還沒登入</span>')+' '+calStatusChip(m.id)+'</td></tr>'}).join('');
   if(my){loadMemberCals(S.date0);const st=calStatus(my.id);
+    if(isAdmin()){if(!S.compCals&&!S.calTried){S.calTried=true;loadCompany(true)}const L=S.compCals||[];h+=panel('公司日曆（管理員）',L.length+' 個','<div class="panel-b pad" style="display:flex;flex-direction:column;gap:10px">'+L.map((c,i)=>'<div style="display:flex;align-items:center;gap:8px"><i style="width:12px;height:12px;border-radius:3px;background:'+esc(c.color)+';flex:none"></i><b style="flex:1;min-width:0;overflow-wrap:anywhere">'+esc(c.name)+'</b>'+(i===0?'<span class="sub">主日曆</span>':(c.ok===false?'<span class="calst no">讀不到</span>':'')+'<button class="btn ghost sm" data-act="calRemove" data-id="'+esc(c.id)+'">移除</button>')+'</div>').join('')+'<div style="display:flex;gap:6px"><input type="text" id="calAddId" placeholder="貼上日曆 ID，例如 xxxx@group.calendar.google.com" aria-label="日曆 ID"><button class="btn primary" data-act="calAdd" style="white-space:nowrap;flex:none">加入</button></div><p class="hint" style="margin:0">用 vwsi.campmanagement 登入 Google 日曆 → 左側該日曆旁「⋮」→「設定和共用」：①「與特定使用者共用」加入 '+esc(BOT_SA)+'（查看所有活動詳細資料）；② 往下找到「整合日曆」的「日曆 ID」，複製貼到這裡。大家可以在「我的任務」上方自己選要顯示哪些日曆。</p></div>',{wide:true})}
     h+=panel('我的行事曆',calStatusChip(my.id)+(my.calPrivate?' <span class="calst no">🔒 只有我看得到標題</span>':''),'<div class="panel-b pad" style="display:flex;flex-direction:column;gap:12px"><p class="sub" style="margin:0">把你的 Google 日曆分享給工作台的服務帳號，Daily Mission 和「團隊」就會顯示你的行程，會議時數也會算進每週工時。<b>要分享完整內容還是只顯示忙碌，由你決定。</b></p>'+
       '<ol class="steps"><li>打開 <a href="https://calendar.google.com/calendar/u/0/r/settings" target="_blank" rel="noopener" style="color:var(--blue)">Google 日曆設定</a>，左邊「<b>我的日曆設定</b>」點你自己的日曆</li><li>往下找到「<b>與特定使用者或群組共用</b>」→「<b>+ 新增使用者和群組</b>」</li><li>貼上 <code class="mono" style="user-select:all">vwsi-bot@vwsi-dashboard.iam.gserviceaccount.com</code> <button class="btn ghost sm" data-act="copyBot">複製</button></li><li>權限選「<b>查看所有活動詳細資料</b>」（大家看得到行程標題）或「<b>只能查看可用時段（隱藏詳細資訊）</b>」（只顯示忙碌）→ 傳送</li><li>按下面的「檢查」。日曆帳號和登入工作台的 Email 不同時，才需要另外填</li></ol>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><label class="field" style="flex:1 1 240px"><span>我的 Google 日曆帳號（空白就用登入 Email '+esc(my.email||'')+'）</span><input type="text" inputmode="email" autocomplete="off" data-mfield="calendarId" data-id="'+esc(my.id)+'" value="'+esc(my.calendarId||'')+'" placeholder="'+esc(my.email||'name@gmail.com')+'"></label><button class="btn" data-act="calCheck">檢查</button></div><label class="inline"><input type="checkbox" data-mfield="calPrivate" data-id="'+esc(my.id)+'" '+(my.calPrivate?'checked':'')+'> 行程標題只給我自己看（其他人只看到「忙碌」時段）</label>'+
@@ -1783,6 +1793,12 @@ document.addEventListener('click',async e=>{
     case 'delLeave':{if(!confirm('刪除這筆登記？'))break;W(S.db.doc('leaves/'+id).delete(),'已刪除');break}
     case 'plinkAdd':{const box=document.getElementById('plinks');if(box)box.insertAdjacentHTML('beforeend',plinkRow({}));break}
     case 'plinkDel':{const r=a.closest('.plink-row');const box=document.getElementById('plinks');if(r&&box&&box.children.length>1)r.remove();else if(r)r.querySelectorAll('input').forEach(i=>i.value='');break}
+    case 'calToggle':{const H=calHidden();H.has(id)?H.delete(id):H.add(id);try{localStorage.setItem('jj-calhide',JSON.stringify([...H]))}catch(_){}render();break}
+    case 'calAdd':{const inp=document.getElementById('calAddId');const v=(inp&&inp.value||'').trim();if(!v){toast('請貼上日曆 ID');break}a.disabled=true;
+      S.sb.functions.invoke('calendar',{body:{mode:'addCal',id:v}}).then(async({data,error})=>{let r=data;if(error){try{r=await error.context.json()}catch(_){r={}}}
+        if(r&&r.ok){toast('已加入：'+(r.name||v));S.compR=null;S.company=null;loadCompany(true);const d0=parseD(S.mineWeek||S.date0);const ws=wkStart();const sun=addDays(S.mineWeek||S.date0,-((d0.getDay()-ws+7)%7));loadCompanyRange(sun,addDays(sun,6),true)}
+        else toast(r&&r.error==='not_shared'?'讀不到這個日曆：請先把它分享給 vwsi-bot（查看所有活動詳細資料）':'加入失敗，請確認日曆 ID');a.disabled=false;render()});break}
+    case 'calRemove':{if(!confirm('從工作台移除這個日曆？（Google 日曆本身不受影響）'))break;S.sb.functions.invoke('calendar',{body:{mode:'removeCal',id}}).then(()=>{toast('已移除');S.compCals=(S.compCals||[]).filter(c=>c.id!==id);S.compR=null;S.company=null;loadCompany(true);render()});break}
     case 'wkToday':S.mineWeek=S.date0;render();break;
     case 'tdAdd':S.tdAdd=a.dataset.day;S.tdEdit=null;render();setTimeout(()=>document.getElementById('td-new')?.focus(),30);break;
     case 'tdEdit':S.tdEdit=id;S.tdAdd=null;render();setTimeout(()=>{const f=document.getElementById('td-edit');if(f){f.focus();f.select()}},30);break;
