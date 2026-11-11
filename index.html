@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-11a">
+<meta name="app-ver" content="2026-11-11b">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -708,6 +708,7 @@ function weekEnd(s){return addDays(weekStart(s),6)}
 function isWeekend(s){const g=parseD(s).getDay();return g===0||g===6}
 function toWork(s){while(isWeekend(s))s=addDays(s,1);return s}
 function addWork(s,n){s=toWork(s);while(n>0){s=addDays(s,1);if(!isWeekend(s))n--}return s}
+function subWork(s,n){while(n>0){s=addDays(s,-1);if(!isWeekend(s))n--}return s}
 function workDays(a,b){let n=0,d=a;while(d<=b){if(!isWeekend(d))n++;d=addDays(d,1)}return n}
 /* recurrence */
 const REC_PRESETS=[['','不重複'],['wd','每個工作日（一～五）'],['day','每天'],['week','每週'],['week2','每兩週'],['month','每月'],['month2','每兩個月'],['month3','每季（3 個月）'],['month6','每半年'],['year','每年'],['custom','自訂…']];
@@ -1086,12 +1087,12 @@ function viewProject(){
   if(st)h+='<form class="row" data-form="addTask" style="flex-wrap:wrap"><input type="text" id="nt-title" name="title" placeholder="新增任務（名詞＋可驗收的成果，例如：講師合約簽回）" required style="flex:2 1 220px"><select name="wp" id="nt-wp" style="flex:1 1 130px" aria-label="工作包"><option value="">未分組</option>'+ts.filter(t=>t.phase).map(t=>'<option value="'+esc(t.code)+'">'+esc(t.code+' '+t.title)+'</option>').join('')+'</select><select name="owner" id="nt-owner" style="flex:1 1 110px">'+memberOptions('')+'</select><input type="date" name="due" id="nt-due" style="flex:0 1 150px" aria-label="期限日"><button class="btn primary" type="submit">新增</button><button class="btn" type="button" data-act="addWp">新增工作包</button></form>';
   let any=false;
   for(const t of ts){
-    if(t.phase){const kids=work.filter(x=>wpOf(x)===String(t.code));const dn=kids.filter(x=>x.status==='done').length;const hl=health(kids);h+='<div class="phase"><span class="code">'+esc(t.code)+'</span><span style="flex:1;min-width:0">'+esc(t.title)+'</span><span class="health h-'+hl+'">'+hl+'</span><span class="mono hint">'+dn+'/'+kids.length+'</span>'+(t.due?'<span class="due">階段期限 '+fmtD(t.due)+'</span>':'')+'</div>';continue}
+    if(t.phase){const kids=work.filter(x=>wpOf(x)===String(t.code));const dn=kids.filter(x=>x.status==='done').length;const hl=health(kids);const pdue=[t.due,...kids.map(x=>x.due)].filter(Boolean).sort().pop();h+='<div class="phase"><span class="code">'+esc(t.code)+'</span><span style="flex:1;min-width:0">'+esc(t.title)+'</span><span class="health h-'+hl+'">'+hl+'</span><span class="mono hint">'+dn+'/'+kids.length+'</span>'+(pdue?'<span class="due">階段期限 '+fmtD(pdue)+'</span>':'')+'</div>';continue}
     if(S.hideDone&&t.status==='done')continue;any=true;
     const wk=canWorkOn(t);
     const sub=['<span class="tid">'+tids[t.id]+'</span>'];if(t.priority)sub.push('<span class="prio p-'+esc(t.priority)+'">'+esc(t.priority)+'</span>');if((t.deps||[]).length)sub.push('前置 '+t.deps.map(x=>tids[x]||'').filter(Boolean).join('、'));if(t.dur)sub.push(t.dur+' 個工作天'+(t.ratio?'・每天 '+Math.round(HOURS_PER_DAY*t.ratio/100*10)/10+' 小時':''));if(t.role&&!t.owner)sub.push('建議角色：'+esc(t.role));if(PENDING.includes(t.status)&&t.waitingOn)sub.push('<span style="color:var(--violet)">'+esc(PEND_LABEL[t.status]+'：'+t.waitingOn)+'</span>');if(t.next)sub.push('下一步：'+esc(t.next));if(t.repeat)sub.push({daily:'每日',weekly:'每週',monthly:'每月'}[t.repeat]+'重複');if((t.collab||[]).length)sub.push('協作：'+t.collab.map(id=>esc(S.members[id]?.name||'')).join('、'));
     const ss=schedState(t);if(ss==='落後')sub.push('<span style="color:var(--amber)">進度落後</span>');
-    h+='<div class="task'+(t.status==='done'?' done':'')+'"><input type="checkbox" aria-label="完成" data-act="toggleDone" data-id="'+esc(t.id)+'" '+(t.status==='done'?'checked':'')+(wk?'':' disabled')+'><span class="code">'+esc(t.code||'')+'</span><div style="min-width:0"><div class="ttl" data-act="openTask" data-id="'+esc(t.id)+'">'+esc(t.title)+(prog(t)&&t.status!=='done'?' <span class="progress-mini"><span style="width:'+prog(t)+'%"></span></span>':'')+'</div><div class="role">'+sub.join(' · ')+'</div></div><select class="c-owner" aria-label="負責人" data-field="owner" data-id="'+esc(t.id)+'" '+(st?'':'disabled')+'>'+memberOptions(t.owner)+'</select><input type="date" aria-label="期限日" data-field="due" data-id="'+esc(t.id)+'" value="'+esc(t.due||'')+'" '+(st?'':'disabled')+' title="'+(schedMode(t)==='auto'?'目前依工作天數自動排；直接改日期會改成固定期限':'')+'"><select class="c-status" aria-label="狀態" data-field="status" data-id="'+esc(t.id)+'" '+(wk?'':'disabled')+'>'+statusOptions(t.status)+'</select></div>';
+    h+='<div class="task'+(t.status==='done'?' done':'')+'"><input type="checkbox" aria-label="完成" data-act="toggleDone" data-id="'+esc(t.id)+'" '+(t.status==='done'?'checked':'')+(wk?'':' disabled')+'><span class="code">'+esc(t.code||'')+'</span><div style="min-width:0"><div class="ttl" data-act="openTask" data-id="'+esc(t.id)+'">'+esc(t.title)+(prog(t)&&t.status!=='done'?' <span class="progress-mini"><span style="width:'+prog(t)+'%"></span></span>':'')+'</div><div class="role">'+sub.join(' · ')+'</div></div><select class="c-owner" aria-label="負責人" data-field="owner" data-id="'+esc(t.id)+'" '+(st?'':'disabled')+'>'+memberOptions(t.owner)+'</select><input type="date" aria-label="期限日" data-move="1" data-field="due" data-id="'+esc(t.id)+'" value="'+esc(t.due||'')+'" '+(st?'':'disabled')+' title="'+(schedMode(t)==='auto'?'改期限時，開始日會跟著一起移動':'')+'"><select class="c-status" aria-label="狀態" data-field="status" data-id="'+esc(t.id)+'" '+(wk?'':'disabled')+'>'+statusOptions(t.status)+'</select></div>';
   }
   if(!ts.length)h+=emptyIllo(3,'這個專案還沒有任務。'+(st?'用上方欄位新增，或在「專案設定」套用範本。':''));
   else if(!any&&S.hideDone)h+=emptyIllo(3,'所有任務都完成了！');
@@ -1604,8 +1605,8 @@ async function setTaskField(id,field,value){
   if(['est','progress','dur','ratio'].includes(field))value=value===''?null:Number(value);
   if(t[field]===value)return;
   const patch={[field]:value,updatedAt:nowISO()};
-  if((field==='start'||field==='due')&&schedMode(t)==='fixed'){const st=field==='start'?value:t.start,du=field==='due'?value:t.due;if(st&&du&&st>du){toast('結束日不能早於開始日');render();drawOverlay();return}patch.dur=st&&du?workDays(st,du)||1:null;patch.sched='fixed';if(field==='due'&&recOf(t)&&!t.recBase)patch.recBase=value}
-  if(field==='due'&&value&&schedMode(t)==='auto'){const st=t.start&&t.start<=value?t.start:value;patch.sched='fixed';patch.start=st;patch.dur=workDays(st,value)||1;toast('已改成固定期限 '+fmtD(value)+'（不再自動排）')}
+  if((field==='start'||field==='due')&&schedMode(t)==='fixed'&&!(field==='due'&&S.dueMove)){const st=field==='start'?value:t.start,du=field==='due'?value:t.due;if(st&&du&&st>du){toast('結束日不能早於開始日');render();drawOverlay();return}patch.dur=st&&du?workDays(st,du)||1:null;patch.sched='fixed';if(field==='due'&&recOf(t)&&!t.recBase)patch.recBase=value}
+  if(field==='due'&&value&&(schedMode(t)==='auto'||S.dueMove)){const len=Math.max(1,Number(t.days)||(schedMode(t)==='auto'?Number(t.dur):0)||(t.start&&t.due&&t.start<=t.due?workDays(t.start,t.due):1));const st=subWork(value,len-1);patch.sched='fixed';patch.start=st;patch.dur=workDays(st,value)||1;if(schedMode(t)==='auto')toast('已改成固定期限 '+fmtD(value)+'（不再自動排）')}
   if(field==='owner'&&value&&value!==t.owner&&value!==me()?.id){const p=S.projects[t.projectId];slackDM(value,'📌 *你被指派了新任務*｜'+slackId(me()?.id)+' 指派\n「'+t.title+'」（'+(p?.name||'')+'）'+(t.due?'｜期限 '+fmtD(t.due):'')+(t.deliverable?'\n驗收標準：'+t.deliverable:'')+'\n<'+location.origin+location.pathname+'#mine|打開職掘工作台>')}
   if(field==='status'){patch.doneAt=value==='done'?nowISO():null;if(value==='done')patch.progress=100;if(value==='doing'&&!t.start)patch.start=S.date0;
     const rr=recOf(t);if(value==='done'&&rr&&t.due&&!t.recSpawned){const base=t.recBase||t.due;const nd=nextOcc(rr,base,t.due);if(nd){const sh=diffDays(nd,t.due);const nt={...t,due:nd,start:t.start?toWork(addDays(t.start,sh)):'',sched:'fixed',status:'todo',progress:0,doneAt:null,rec:rr,recBase:base,repeat:'',createdAt:nowISO(),updatedAt:nowISO()};if(nt.start>nd)nt.start=nd;delete nt.id;delete nt.recSpawned;delete nt.startMin;patch.recSpawned=true;W(S.db.collection('tasks').add(nt),'🔁 已建立下一次：'+fmtD(nd))}}}
@@ -1853,7 +1854,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.deptch){const id=el.dataset.deptch,v=el.value;W(S.db.doc('depts/'+id).update({slackChannel:v,slackChannelName:chName(v)||''}),'已更新部門預設頻道');return}
   if(el.dataset.sfield){const col=el.dataset.sfield;const [k,v]=[el.dataset.k,el.value.trim()];W(S.db.doc(col+'/'+el.dataset.id).update({[k]:v}),'已更新 Slack 設定');return}
   if(el.dataset.act==='tplPick'){const t=S.templates[el.value];const h=document.getElementById('tplHint');if(h)h.textContent=!t?'選擇範本後，這裡會說明期限怎麼計算。':t.timed?'會依「'+t.anchorLabel+'」自動回推每項任務的期限，請在上方填入基準日。':'流程型範本：任務不會自動帶期限，建立後再依實際時程填寫。';return}
-  if(el.dataset.field&&el.dataset.id){const v=el.type==='checkbox'?el.checked:el.value;setTaskField(el.dataset.id,el.dataset.field,typeof v==='string'&&el.type==='text'?v.trim():v);return}
+  if(el.dataset.field&&el.dataset.id){S.dueMove=el.dataset.move==='1';setTimeout(()=>{S.dueMove=false},0);const v=el.type==='checkbox'?el.checked:el.value;setTaskField(el.dataset.id,el.dataset.field,typeof v==='string'&&el.type==='text'?v.trim():v);return}
   if(el.dataset.mfield==='email'){const v=el.value.trim().toLowerCase();if(v&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){toast('Email 格式不正確');return}if(v&&Object.values(S.members).some(x=>x.id!==el.dataset.id&&(x.email||'').toLowerCase()===v)){toast('這個 Email 已經有人使用');return}W(S.db.doc('members/'+el.dataset.id).update({email:v}),v?'已更新，對方用這個 Google 帳號登入就會自動對應':'已清除 Email');return}
   if(el.dataset.mfield){const v=el.type==='checkbox'?el.checked:el.value.trim();W(S.db.doc('members/'+el.dataset.id).update({[el.dataset.mfield]:v}));return}
   if(el.dataset.dfield){W(S.db.doc('depts/'+el.dataset.id).update({[el.dataset.dfield]:el.value.trim()}));return}
