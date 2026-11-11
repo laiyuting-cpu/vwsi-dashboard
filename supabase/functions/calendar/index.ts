@@ -41,6 +41,11 @@ async function calInsert(token: string, id: string) {
   const r = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
+const svc = () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+async function calCfg(): Promise<{ extra: { id: string; name: string }[]; hidden: string[] }> {
+  const { data } = await svc().from('org_settings').select('data').eq('id', 'calendars').maybeSingle();
+  return { extra: (data?.data?.extra ?? []) as { id: string; name: string }[], hidden: (data?.data?.hiddenByDefault ?? []) as string[] };
+}
 const COMPANY = () => Deno.env.get('COMPANY_CALENDAR_ID') || 'vwsi.campmanagement@gmail.com';
 // 公司相關日曆：公司帳號主日曆 + 服務帳號清單裡標記為公司的（名稱或 ID 登記在 company_cals）
 const PALETTE = ['#2f6fb3', '#c7882b', '#3b8b5a', '#8a5bb3', '#b34a4a', '#2b8a8a', '#6b7a8a'];
@@ -77,16 +82,18 @@ Deno.serve(async (req) => {
       if (!admin) return json({ ok: false, error: 'admin_only' }, 403);
       const id = String(q.id || '').trim();
       if (!id || id.length > 200) return json({ ok: false, error: 'bad_id' }, 400);
-      if (q.mode === 'removeCal') {
-        const r = await fetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-        memo.clear();
-        return json({ ok: r.status === 204 || r.status === 404 });
+      const cfg = await calCfg();
+      let extra = cfg.extra.filter((c) => c.id !== id);
+      let name = id;
+      if (q.mode === 'addCal') {
+        const t = await listEvents(token, id, from, from);
+        if (t.status !== 200) return json({ ok: false, error: t.status === 404 || t.status === 403 ? 'not_shared' : 'google_error' });
+        name = t.j?.summary || id;
+        extra = [...extra, { id, name }];
       }
-      const t = await listEvents(token, id, from, from);
-      if (t.status !== 200) return json({ ok: false, error: t.status === 404 || t.status === 403 ? 'not_shared' : 'google_error' });
-      const ins = await calInsert(token, id);
+      await svc().from('org_settings').upsert({ id: 'calendars', data: { extra, hiddenByDefault: cfg.hidden }, updated_at: new Date().toISOString() });
       memo.clear();
-      return json({ ok: ins.status === 200, name: t.j?.summary || id, error: ins.status === 200 ? undefined : ins.j?.error?.message });
+      return json({ ok: true, name });
     }
     if (q.mode === 'members') {
       const { data: staff } = await who.sb.rpc('is_staff');
@@ -134,15 +141,15 @@ Deno.serve(async (req) => {
     }
 
     const main = COMPANY();
-    const listed = await calList(token);
-    const cals = [{ id: main, name: '' }, ...listed.filter((c) => c.id !== main).map((c) => ({ id: c.id, name: c.summaryOverride || c.summary || c.id }))];
-    if (q.mode === 'cals') return json({ ok: true, calendars: cals.map((c, i) => ({ ...c, color: PALETTE[i % PALETTE.length] })) });
+    const cfg = await calCfg();
+    const cals = [{ id: main, name: '' }, ...cfg.extra.filter((c) => c.id !== main)];
+    if (q.mode === 'cals') return json({ ok: true, calendars: cals.map((c, i) => ({ ...c, color: PALETTE[i % PALETTE.length], hide: cfg.hidden.includes(c.id) })) });
     const key = 'c:' + cals.map((c) => c.id).join(',') + from + to;
     const hit = memo.get(key);
     if (hit && Date.now() - hit.at < 120_000) return json(hit.body);
     const res = await Promise.all(cals.map((c) => listEvents(token, c.id, from, to)));
     if (res[0].status !== 200 && res.every((r) => r.status !== 200)) return json({ ok: false, error: res[0].status === 404 || res[0].status === 403 ? 'not_shared' : 'google_error', detail: res[0].j?.error?.message }, 502);
-    const calendars = cals.map((c, i) => ({ id: c.id, name: c.name || res[i].j?.summary || c.id, color: PALETTE[i % PALETTE.length], ok: res[i].status === 200 }));
+    const calendars = cals.map((c, i) => ({ id: c.id, name: c.name || res[i].j?.summary || c.id, color: PALETTE[i % PALETTE.length], ok: res[i].status === 200, hide: cfg.hidden.includes(c.id) }));
     const events = res.flatMap((r, i) => r.status !== 200 ? [] : (r.j.items ?? []).filter((e: { status?: string }) => e.status !== 'cancelled').map((e: Record<string, unknown>) => ({
       summary: e.summary, start: e.start, end: e.end, location: e.location, htmlLink: e.htmlLink, cal: cals[i].id,
     })));

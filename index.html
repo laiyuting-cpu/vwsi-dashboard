@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-10a">
+<meta name="app-ver" content="2026-11-11a">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -1008,7 +1008,7 @@ async function loadCompanyRange(from,to,force){if(!S.sb)return;const key=from+to
   catch(e){S.compR={key,at:Date.now(),events:[],error:'error'}}
   render();
 }
-function calHidden(){if(!S.calHide){let v=[];try{v=JSON.parse(localStorage.getItem('jj-calhide')||'[]')}catch(_){}S.calHide=new Set(Array.isArray(v)?v:[])}return S.calHide}
+function calHidden(){if(!S.calHide){let v=null;try{v=JSON.parse(localStorage.getItem('jj-calhide')||'null')}catch(_){}if(!Array.isArray(v)){if(!S.compCals)return new Set();v=S.compCals.filter(c=>c.hide).map(c=>c.id)}S.calHide=new Set(v)}return S.calHide}
 function calShown(e){return !e.cal||!calHidden().has(e.cal)}
 function calColor(id){const c=(S.compCals||[]).find(x=>x.id===id);return c?c.color:'var(--yellow)'}
 function calChips(){const L=S.compCals||[];if(L.length<2)return '';return '<div class="calchips" role="group" aria-label="要顯示的公司日曆"><span class="sub">公司日曆：</span>'+L.map(c=>{const on=!calHidden().has(c.id);return '<button type="button" class="calchip" data-act="calToggle" data-id="'+esc(c.id)+'" aria-pressed="'+on+'" title="'+(on?'點一下隱藏':'點一下顯示')+'"><i style="background:'+esc(c.color)+'"></i>'+esc(c.name)+'</button>'}).join('')+'</div>'}
