@@ -119,14 +119,14 @@
       await loadSegs(id);
       for (const n of expected(m)) {
         const s = (M.segs[id] || {})[n];
-        if (s && s.status === 'done') continue;
+        if (s && (s.status === 'done' || s.status === 'empty')) continue;
         if (s && s.status === 'working' && !(opts && opts.force) && Date.now() - new Date(s.updated_at || 0) < 4 * 60e3) continue;
         const ok = await transcribe(id, n);
         if (!ok) { await loadSegs(id); return; }
       }
       await loadSegs(id);
       m = M.list[id];
-      const all = expected(m).every((n) => ((M.segs[id] || {})[n] || {}).status === 'done');
+      const all = expected(m).every((n) => ['done', 'empty'].includes(((M.segs[id] || {})[n] || {}).status));
       if (all && m.status !== 'recording' && (!m.summary || (opts && opts.resum))) {
         if (m.owner === (me() || {}).id) await S().db.doc('meetings/' + id).update({ status: 'summarizing' }).catch(() => {});
         const r = await call('meeting', { mode: 'summary', id });
@@ -189,7 +189,10 @@
       toast('無法建立會議記錄：' + ((e && e.message) || '')); return;
     }
     M.list[ref.id] = { id: ref.id, ...data };
-    const R = M.rec = { id: ref.id, mime, ctx, an, mic, disp, stream: dest.stream, n: 0, off: 0, segAt: Date.now(), segPaused: 0, pausedAt: 0, paused: false, parts: [], q: Promise.resolve(), pending: 0, failed: [], start: Date.now(), tick: null, mr: null };
+    // 只有麥克風時直接錄麥克風音軌；AudioContext 只用來畫音量條。
+    // （背景分頁時瀏覽器可能暫停 AudioContext，經過它錄音會錄到空檔。）
+    const recStream = disp ? dest.stream : new MediaStream(mic.getAudioTracks());
+    const R = M.rec = { id: ref.id, mime, ctx, an, dest, mic, disp, stream: recStream, n: 0, off: 0, segAt: Date.now(), segPaused: 0, pausedAt: 0, paused: false, parts: [], q: Promise.resolve(), pending: 0, failed: [], start: Date.now(), tick: null, mr: null };
     if (disp) disp.getVideoTracks().forEach((t) => { t.onended = () => { if (M.rec === R) toast('螢幕分享已停止，之後只錄得到麥克風'); }; });
     mic.getAudioTracks().forEach((t) => { t.onended = () => { if (M.rec === R) { toast('麥克風中斷了，已自動結束錄音'); stopRec(); } }; });
     newRecorder(R);
@@ -202,19 +205,43 @@
   }
   function segElapsed(R) { return (Date.now() - R.segAt - R.segPaused - (R.paused ? Date.now() - R.pausedAt : 0)) / 1000; }
   function newRecorder(R) {
+    try { if (R.ctx && R.ctx.state !== 'running') R.ctx.resume(); } catch (_) {}
     let mr;
     try { mr = new MediaRecorder(R.stream, R.mime ? { mimeType: R.mime, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 }); }
     catch (_) { mr = new MediaRecorder(R.stream); }
     const chunks = []; const n = R.n; const off = R.off;
-    mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    mr._bytes = 0; mr._t0 = Date.now();
+    mr.ondataavailable = (e) => { if (e.data && e.data.size) { chunks.push(e.data); mr._bytes += e.data.size; } };
     mr.onstop = () => {
       const dur = Math.max(1, Math.round(mr._dur || segElapsed(R)));
       const blob = new Blob(chunks, { type: (mr.mimeType || R.mime || 'audio/webm').split(';')[0] });
+      if (dur > 20 && blob.size < 2000 && !mr._flag) emptySeg(R, n, dur);
       if (blob.size > 0) enqueue(R, n, blob, off, dur);
       else if (R.finishing) maybeFinish(R);
     };
     mr.start(1000);
     R.mr = mr; R.segAt = Date.now(); R.segPaused = 0;
+  }
+  // 某一段幾乎沒有資料：提醒並嘗試重新接上麥克風
+  async function emptySeg(R, n, dur) {
+    R.empty = (R.empty || 0) + 1;
+    console.warn('empty segment', n, dur);
+    if (M.rec !== R) return;
+    toast('⚠️ 第 ' + (n + 1) + ' 段沒有錄到聲音，正在重新接上麥克風…');
+    try {
+      try { await R.ctx.resume(); } catch (_) {}
+      {
+        const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        const old = R.mic; R.mic = mic;
+        try { const src = R.ctx.createMediaStreamSource(mic); src.connect(R.an); if (R.disp) src.connect(R.dest); } catch (_) {}
+        if (!R.disp) R.stream = new MediaStream(mic.getAudioTracks());
+        cut(R);
+        setTimeout(() => old.getTracks().forEach((t) => t.stop()), 1000);
+        mic.getAudioTracks().forEach((t) => { t.onended = () => { if (M.rec === R) { toast('麥克風中斷了，已自動結束錄音'); stopRec(); } }; });
+      }
+      toast('已重新接上麥克風，錄音繼續中');
+    } catch (e) { toast('⚠️ 麥克風沒有聲音，請檢查麥克風後重新開始錄音'); }
+    drawBar();
   }
   function cut(R, final) {
     const old = R.mr; if (!old) return;
@@ -226,6 +253,9 @@
   function tick(R) {
     if (M.rec !== R) return;
     if (!R.paused && segElapsed(R) >= SEG_SEC) cut(R);
+    // 開始 20 秒後幾乎沒有資料 → 錄音沒有收到聲音，馬上補救
+    const mr = R.mr;
+    if (mr && !R.paused && !mr._flag && Date.now() - mr._t0 > 20000 && mr._bytes < 1500) { mr._flag = true; emptySeg(R, R.n, segElapsed(R)); }
     const el = document.getElementById('jxRecT'); if (el) el.textContent = mmss(totalElapsed(R));
     const lv = document.getElementById('jxRecL');
     if (lv && R.an) { const a = new Uint8Array(R.an.fftSize); R.an.getByteTimeDomainData(a); let p = 0; for (const v of a) p = Math.max(p, Math.abs(v - 128)); lv.style.width = Math.min(100, Math.round(p / 128 * 180)) + '%'; }
@@ -292,6 +322,7 @@
   }
   document.addEventListener('visibilitychange', () => {
     if (!M.rec) return;
+    try { if (M.rec.ctx && M.rec.ctx.state !== 'running') M.rec.ctx.resume(); } catch (_) {}
     if (document.visibilityState === 'visible') { wake(true); if (M.rec.hiddenAt && Date.now() - M.rec.hiddenAt > 5000 && /iPhone|iPad/.test(navigator.userAgent)) toast('剛剛離開畫面時，手機可能暫停了錄音'); M.rec.hiddenAt = 0; }
     else M.rec.hiddenAt = Date.now();
   });
@@ -391,6 +422,11 @@
     h += '<div class="jx-split' + (M.sel ? ' has-sel' : '') + '"><aside class="panel jx-list">' + list + '</aside><div class="jx-det">' + det + '</div></div>';
     return h;
   }
+  function rangeTxt(a) {
+    const out = []; let i = 0;
+    while (i < a.length) { let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? a[i] + '–' + a[j] : String(a[i])); i = j + 1; }
+    return out.join('、');
+  }
   function stale(m) {
     const last = Math.max(new Date(m.startedAt || 0).getTime(), ...(m.parts || []).map((p) => new Date(p.at || 0).getTime()));
     return Date.now() - last > (SEG_SEC + 180) * 1000;
@@ -401,7 +437,8 @@
     watchSegs(m.id);
     const my = me(); const own = m.owner === my.id; const D = own ? '' : 'disabled';
     const segs = M.segs[m.id] || {}; const exp = expected(m);
-    const doneN = exp.filter((n) => (segs[n] || {}).status === 'done').length;
+    const doneN = exp.filter((n) => ['done', 'empty'].includes((segs[n] || {}).status)).length;
+    const empties = exp.filter((n) => (segs[n] || {}).status === 'empty');
     const errs = exp.filter((n) => (segs[n] || {}).status === 'error');
     const live = M.rec && M.rec.id === m.id;
     const busy = !!M.busy[m.id] || (M.done && M.done.id === m.id);
@@ -426,6 +463,7 @@
       h += '<div class="jx-prog"><div style="flex:1"><div>' + (m.status === 'uploading' ? '上傳音檔中…' : m.status === 'summarizing' || (doneN === exp.length && exp.length) ? '整理重點中…' : '轉逐字稿中… ' + doneN + ' / ' + exp.length + ' 段') + '</div><div class="bar"><span style="width:' + pct + '%"></span></div></div>' +
         (!busy && m.status !== 'uploading' ? '<button class="btn sm" data-jx="resume" data-id="' + esc(m.id) + '">繼續整理</button>' : '<span class="jx-spin"></span>') + '</div>';
     }
+    if (empties.length) h += '<div class="jx-prog warn">第 ' + rangeTxt(empties.map((n) => n + 1)) + ' 段（每段 5 分鐘）沒有錄到聲音，這部分沒有逐字稿。</div>';
     if (errs.length && !busy) h += '<div class="jx-prog warn">第 ' + errs.map((n) => n + 1).join('、') + ' 段轉錄失敗：' + esc(String((segs[errs[0]] || {}).error || '').slice(0, 120)) + ' <button class="btn sm" data-jx="resume" data-id="' + esc(m.id) + '" data-force="1">重試</button></div>';
     // 分頁
     const sm = m.summary || null; const todos = (sm && sm.todos) || [];
@@ -488,7 +526,7 @@
         labels.map((l) => '<label><span>' + esc(l) + '</span><input type="text" list="jx-names" data-jxf="spk" data-id="' + esc(m.id) + '" data-l="' + esc(l) + '" value="' + esc((m.speakers || {})[l] || '') + '" placeholder="改成…"></label>').join('') +
         '</div><datalist id="jx-names">' + J().activeMembers().map((x) => '<option value="' + esc(x.name) + '">').join('') + '</datalist><p class="hint" style="margin:6px 0 0">改完名字後，到「重點」按「重新整理重點」就會用新名字。</p></details>';
     }
-    const pending = exp.length - exp.filter((n) => (segs[n] || {}).status === 'done').length;
+    const pending = exp.length - exp.filter((n) => ['done', 'empty'].includes((segs[n] || {}).status)).length;
     h += '<div class="jx-tools"><button class="btn sm" data-jx="dlTx" data-id="' + esc(m.id) + '">⬇ 下載逐字稿</button><button class="btn sm" data-jx="copyTx" data-id="' + esc(m.id) + '">📋 複製</button>' + (m.purged ? '<span class="hint">錄音檔已超過 30 天自動刪除，逐字稿保留</span>' : '<span class="hint">點時間可以播放那一段錄音</span>') + '</div>';
     h += '<audio id="jxAudio" controls preload="none" style="width:100%;' + (M.playing === m.id ? '' : 'display:none') + '"></audio>';
     const col = {}; labels.forEach((l, i) => { col[l] = ['var(--blue)', 'var(--amber)', 'var(--green)', 'var(--violet)', 'var(--red)', '#0f8b8d', '#6b7a1a', '#3d5a99'][i % 8]; });

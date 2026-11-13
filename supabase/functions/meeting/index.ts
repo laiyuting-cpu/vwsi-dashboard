@@ -167,6 +167,7 @@ async function doSeg(id: string, m: MData, n: number) {
     const p = parts.find((x) => x.n === n);
     if (!p) throw fail('audio_missing');
     const bytes = await download(p.path);
+    if (bytes.length < 1024) throw fail('empty_audio', `only ${bytes.length} bytes`);
     const mime = geminiMime(p.mime);
     if (bytes.length > 12 * 1024 * 1024) { const up = await gUpload(bytes, mime, id + '-' + n); audio = { fileData: { fileUri: up.uri, mimeType: up.mime } }; }
     else audio = { inlineData: { mimeType: mime, data: encodeBase64(bytes) } };
@@ -217,6 +218,7 @@ async function doSummary(id: string, m: MData) {
   const { data: segs } = await db.from('meeting_segs').select('n,lines,status').eq('meeting_id', id).order('n');
   const map = m.speakers ?? {};
   const all = (segs ?? []).filter((s) => s.status === 'done').flatMap((s) => s.lines as Line[]);
+  const missing = (segs ?? []).filter((s) => s.status === 'empty').length;
   if (!all.length) throw fail('no_transcript');
   const text = all.map((l) => `[${mmss(l.t)}] ${map[l.sp] || l.sp}：${l.text}`).join('\n');
   const names = await memberNames();
@@ -231,6 +233,7 @@ async function doSummary(id: string, m: MData) {
     ...def.sections.map(([h, d], i) => `- s${i}（${h}）：${d}。每點一句話；沒有就回傳空陣列。`),
     `- todos（下一步行動）：${def.todo}。text 用動詞開頭；owner 填負責人（公司夥伴請用名單裡斜線前的第一個名字，外部人士寫單位或稱呼，沒有明確負責人就空字串）；due 填 YYYY-MM-DD（有提到期限才填，「下週三」這類請換算成日期，沒有就空字串）。`,
     '不要編造逐字稿裡沒有的內容。',
+    missing ? `注意：這場會議有 ${missing} 段（每段約 5 分鐘）沒有錄到聲音，逐字稿不完整，請只根據現有內容整理。` : '',
     '',
     '逐字稿：',
     text,
@@ -285,6 +288,10 @@ Deno.serve(async (req) => {
         return json({ ok: true, n, count: lines.length });
       } catch (e) {
         const code = (e as { code?: string }).code || 'error';
+        if (code === 'empty_audio') {
+          await db.from('meeting_segs').upsert({ meeting_id: id, n, status: 'empty', lines: [], error: '這段沒有錄到聲音', updated_at: new Date().toISOString() });
+          return json({ ok: true, n, count: 0, empty: true });
+        }
         await db.from('meeting_segs').upsert({ meeting_id: id, n, status: 'error', error: `${code}: ${String((e as Error).message).slice(0, 300)}`, updated_at: new Date().toISOString() });
         throw e;
       }
