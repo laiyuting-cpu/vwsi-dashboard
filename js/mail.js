@@ -107,7 +107,7 @@
   function settingsPanel() {
     const st = ST.st || {};
     if (!st.admin) return '';
-    const my = me(); const members = J().activeMembers().filter((m) => m.kind !== '主管');
+    const my = me(); const members = J().activeMembers().filter((m) => m.kind !== '主管'); const bosses = J().activeMembers().filter((m) => m.kind === '主管' && m.id !== me().id).map((m) => m.name).join('、');
     let h = '<div class="panel-b pad"><p class="sub" style="margin:0 0 10px">連結公用 Gmail 後，工作台每 5 分鐘檢查未讀信件，提醒看得到的夥伴（✉️、電腦通知、Slack 私訊）。只存寄件人、主旨和前兩行，讀過或超過 7 天就刪除。主管都看得到公用信箱。</p>';
     if (!st.ready) h += '<p class="hint">Google 授權還沒設定好（GOOGLE_OAUTH_CLIENT_ID）。</p>';
     h += Object.values(ST.boxes).sort((a, b) => String(a.id).localeCompare(String(b.id))).map((b) => {
@@ -116,7 +116,7 @@
       return '<div class="mb-set"><div class="mb-set-h"><input type="text" value="' + esc(b.label || '') + '" data-jmf="label" data-id="' + esc(b.id) + '" aria-label="' + esc(b.id) + ' 的顯示名稱" placeholder="顯示名稱" style="width:160px"><span class="mono">' + esc(b.id) + '</span>' + stTxt + '<span style="flex:1"></span>' +
         (b.status && b.status !== 'ok' ? '<button class="btn sm" data-jm="connect">重新連結</button>' : '') + '<button class="btn sm ghost danger" data-jm="disc" data-id="' + esc(b.id) + '">取消連結</button></div>' +
         '<label class="inline"><input type="checkbox" data-jmf="private" data-id="' + esc(b.id) + '" ' + (priv ? 'checked' : '') + (priv && !mineP ? ' disabled' : '') + '> 個人信箱（只有' + (priv ? esc((S().members[b.owner] || {}).name || '擁有者') : '我') + '看得到）</label>' +
-        (priv ? '' : '<div class="mb-allow"><span class="hint">還有誰看得到：</span>' + members.map((m) => '<label class="jx-ach' + (allow.includes(m.id) ? ' on' : '') + '"><input type="checkbox" data-jmf="allow" data-id="' + esc(b.id) + '" value="' + esc(m.id) + '" ' + (allow.includes(m.id) ? 'checked' : '') + '>' + esc(m.name) + '</label>').join('') + '</div>') + '</div>';
+        (priv ? '' : '<div class="mb-allow"><span class="hint">主管' + (bosses ? '（' + esc(bosses) + '）' : '') + '本來就看得到；另外開放給：</span>' + members.map((m) => '<label class="jx-ach' + (allow.includes(m.id) ? ' on' : '') + '"><input type="checkbox" data-jmf="allow" data-id="' + esc(b.id) + '" value="' + esc(m.id) + '" ' + (allow.includes(m.id) ? 'checked' : '') + '>' + esc(m.name) + '</label>').join('') + '</div>') + '</div>';
     }).join('');
     h += '<div style="margin-top:12px"><button class="btn primary" data-jm="connect"' + (st.ready ? '' : ' disabled') + '>＋ 連結信箱</button> <span class="hint">會跳出 Google 視窗，請選擇（或登入）要連結的公用帳號。</span></div></div>';
     return h;
