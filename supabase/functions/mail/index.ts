@@ -50,7 +50,7 @@ async function pollBox(b: Box, first = false) {
     const tok = await accessToken(b.id);
     const H = { Authorization: `Bearer ${tok}` };
     const lab = await (await fetch(`${GM}/labels/INBOX`, { headers: H })).json();
-    const list = await (await fetch(`${GM}/messages?` + new URLSearchParams({ q: 'is:unread in:inbox newer_than:7d', maxResults: '30' }), { headers: H })).json();
+    const list = await (await fetch(`${GM}/messages?` + new URLSearchParams({ q: 'is:unread in:inbox category:primary newer_than:7d', maxResults: '30' }), { headers: H })).json();
     if (list.error) throw fail(list.error.status === 'UNAUTHENTICATED' ? 'reauth' : 'gmail_error', list.error.message);
     const ids: string[] = (list.messages ?? []).map((m: { id: string }) => m.id);
     const { data: have } = await db.from('mail_msgs').select('id').eq('mailbox', b.id);
