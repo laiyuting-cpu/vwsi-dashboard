@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-13c">
+<meta name="app-ver" content="2026-11-13d">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -59,7 +59,16 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;backgroun
 .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:17px;letter-spacing:.02em;white-space:nowrap}
 .brand-mark{width:26px;height:26px;border-radius:7px;background:var(--blue);position:relative;flex:none}
 .brand-mark::after{content:"";position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;background:var(--yellow);border:2px solid var(--surface)}
-nav.tabs{display:flex;gap:2px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none}
+nav.tabs{display:flex;gap:2px;overflow:hidden;flex:1;min-width:0;scrollbar-width:none}
+nav.tabs a.ovf{display:none}
+@media (max-width:1440px){nav.tabs a,.tmore{padding:7px 9px}}
+.tmore{padding:7px 12px;border-radius:8px;color:var(--ink-2);white-space:nowrap;font-weight:500;border:0;background:transparent;font:inherit;cursor:pointer;flex:none}
+.tmore:hover,.tmore[aria-expanded="true"]{background:var(--surface-2);color:var(--ink)}
+.tmore[aria-current="page"]{background:var(--blue-soft);color:var(--blue);font-weight:700}
+.tmenu{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:6px;min-width:180px;display:flex;flex-direction:column}
+.tmenu a{padding:9px 12px;border-radius:8px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.tmenu a:hover,.tmenu a:focus-visible{background:var(--surface-2)}
+.tmenu a[aria-current="page"]{background:var(--blue-soft);color:var(--blue);font-weight:700}
 nav.tabs a{padding:7px 12px;border-radius:8px;color:var(--ink-2);text-decoration:none;white-space:nowrap;font-weight:500}
 nav.tabs a:hover{background:var(--surface-2);color:var(--ink)}
 nav.tabs a[aria-current="page"]{background:var(--blue-soft);color:var(--blue);font-weight:700}
@@ -710,6 +719,7 @@ body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
       <a href="#leave" data-view="leave">請假／遠距</a>
       <a href="#gift" data-view="gift">🎁 交換禮物</a>
       <a href="#settings" data-view="settings">設定</a>
+      <button type="button" class="tmore" id="tmore" hidden aria-haspopup="true" aria-expanded="false">更多 ▾</button>
     </nav>
     <div class="who" id="who"></div>
   </div>
@@ -899,9 +909,32 @@ document.getElementById('main').addEventListener('focusout',()=>{if(pending)setT
 let composing=false;document.addEventListener('compositionstart',()=>{composing=true});document.addEventListener('compositionend',()=>{composing=false;if(pending)setTimeout(render,60)});
 function ready(){return S.loaded.members&&S.loaded.depts&&S.loaded.projects&&S.loaded.tasks}
 
+// 上方選單放不下時，把後面的項目收進「更多 ▾」，不用橫向捲動
+function fitTabs(){
+  const nav=document.getElementById('tabs'),more=document.getElementById('tmore');if(!nav||!more||!nav.offsetParent)return;
+  const links=[...nav.querySelectorAll('a')].filter(a=>a.style.display!=='none'&&!a.hidden);
+  links.forEach(a=>a.classList.remove('ovf'));more.hidden=true;
+  if(nav.scrollWidth<=nav.clientWidth+1){closeTmenu();return}
+  more.hidden=false;
+  for(let i=links.length-1;i>0&&nav.scrollWidth>nav.clientWidth+1;i--)links[i].classList.add('ovf');
+  more.setAttribute('aria-current',links.some(a=>a.classList.contains('ovf')&&a.dataset.view===S.view)?'page':'false');
+}
+function closeTmenu(){const m=document.getElementById('tmenu');if(m)m.remove();const b=document.getElementById('tmore');if(b)b.setAttribute('aria-expanded','false')}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('#tmore');
+  if(b){e.preventDefault();if(document.getElementById('tmenu')){closeTmenu();return}
+    const m=document.createElement('div');m.id='tmenu';m.className='tmenu';m.setAttribute('role','menu');
+    document.querySelectorAll('#tabs a.ovf').forEach(a=>{const c=a.cloneNode(true);c.classList.remove('ovf');c.setAttribute('role','menuitem');m.appendChild(c)});
+    document.body.appendChild(m);const r=b.getBoundingClientRect();m.style.top=(r.bottom+6)+'px';m.style.left=Math.max(8,Math.min(r.left,innerWidth-m.offsetWidth-8))+'px';
+    b.setAttribute('aria-expanded','true');m.querySelector('a')?.focus();return}
+  if(!e.target.closest('#tmenu'))closeTmenu();else if(e.target.closest('a'))setTimeout(closeTmenu,0);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('tmenu')){closeTmenu();document.getElementById('tmore')?.focus()}});
+{let fr=0;addEventListener('resize',()=>{cancelAnimationFrame(fr);fr=requestAnimationFrame(()=>{closeTmenu();fitTabs()})});if(document.fonts)document.fonts.ready.then(fitTabs)}
 function draw(){
   if(S.view==='settings'&&matchMedia('(max-width:760px)').matches){S.view='overview';history.replaceState(null,'',location.pathname+'#overview')}
   document.querySelectorAll('#tabs a,#bnav a,#bsheet a').forEach(a=>a.setAttribute('aria-current',a.dataset.view===S.view?'page':'false'));
+  fitTabs();
   {const bm=document.getElementById('bmore');if(bm)bm.setAttribute('aria-current',['team','manuals','year','settings','meet','leave','gift'].includes(S.view)?'page':'false')}
   drawWho();
   const main=document.getElementById('main');
