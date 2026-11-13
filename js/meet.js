@@ -712,7 +712,7 @@
     else if (!can) b += '<div class="jx-note">這個活動由 ' + esc(e.organizer || '別人') + ' 建立，你只能回覆邀請。</div>';
     b += '<label class="field"><span>標題</span><input type="text" id="ge-sum" value="' + esc(e.summary || '') + '" maxlength="300" ' + D + ' placeholder="例如：MIT 美語寒假營討論"></label>';
     b += '<div class="jx-when"><label class="inline"><input type="checkbox" id="ge-all" ' + (allDay ? 'checked' : '') + ' ' + D + ' data-jxf="geAll"> 整天</label>' +
-      '<label class="field"><span>' + (allDay ? '開始日' : '日期') + '</span><input type="date" id="ge-d0" value="' + esc(d0) + '" ' + D + '></label>' +
+      '<label class="field' + (allDay ? '' : ' jx-full') + '"><span>' + (allDay ? '開始日' : '日期') + '</span><input type="date" id="ge-d0" value="' + esc(d0) + '" ' + D + '></label>' +
       (allDay ? '<label class="field"><span>結束日</span><input type="date" id="ge-d1" value="' + esc(d1) + '" ' + D + '></label>'
         : '<label class="field"><span>開始</span><input type="time" id="ge-t0" value="' + esc(t0) + '" step="300" ' + D + ' data-jxf="geT0"></label><label class="field"><span>結束</span><input type="time" id="ge-t1" value="' + esc(t1) + '" step="300" ' + D + '></label>') + '</div>';
     if (x.isNew && G.cals) {

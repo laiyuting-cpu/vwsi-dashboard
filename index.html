@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-13j">
+<meta name="app-ver" content="2026-11-13l">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -507,6 +507,8 @@ a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;ov
   .top .wrap{padding-block:8px;flex-wrap:nowrap;justify-content:space-between}
   .who span:not(.avatar):not(.perm){display:none}
   .who .avatar{width:32px;height:32px}
+  .who{gap:4px}.who .out{padding:4px 5px}
+  html,body{overflow-x:clip}
   main{padding-block:14px calc(84px + env(safe-area-inset-bottom,0px))}
   h1{font-size:20px}
   .page-head{align-items:flex-start;margin-bottom:12px}
@@ -715,7 +717,7 @@ body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 .jx-t{border:0;background:transparent;color:var(--ink-3);font-size:12px;text-align:left;padding:2px 0;align-self:start}
 .jx-t:hover:not(:disabled){color:var(--blue);text-decoration:underline}
 .jx-foot{padding:10px 14px;border-top:1px solid var(--line)}
-.jx-when{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.jx-when .field{flex:1 1 120px}.jx-when .inline{padding-bottom:8px}
+.jx-when{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;align-items:end;margin-bottom:12px}.jx-when .inline{grid-column:1/-1;padding:0}.jx-when .field{min-width:0;margin:0}.jx-when .jx-full{grid-column:1/-1}@media (min-width:700px){.jx-when{grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr)}.jx-when .inline{grid-column:auto;padding-bottom:10px}.jx-when .jx-full{grid-column:auto}}.field input[type=date],.field input[type=time]{width:100%;min-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:42px;text-align:left}.field input[type=date]::-webkit-date-and-time-value,.field input[type=time]::-webkit-date-and-time-value{text-align:left}
 .jx-att{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .jx-ach{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer}
 .jx-ach input{position:absolute;opacity:0;width:0;height:0}.jx-ach.on{background:var(--blue-soft);border-color:var(--blue);color:var(--blue);font-weight:700}
@@ -1001,7 +1003,7 @@ function drawWho(){
   const el=document.getElementById('who');const m=me();
   el.innerHTML=(m?avatar(m)+'<span>'+esc(m.name)+'</span><span class="perm '+roleOf(m)+'">'+ROLE_LABEL[roleOf(m)]+'</span>':'')+themeBtn()+(S.sb&&S.uid?'<button class="out" data-act="logout" title="登出">登出</button>':'');
 }
-const THEMES=[['','🌓 自動','跟著電腦設定'],['light','☀️ 亮色','固定亮色'],['dark','🌙 暗色','固定暗色']];
+const THEMES=[['','🌓<span> 自動</span>','跟著電腦設定'],['light','☀️<span> 亮色</span>','固定亮色'],['dark','🌙<span> 暗色</span>','固定暗色']];
 function curTheme(){return document.documentElement.dataset.theme||''}
 function themeBtn(){const t=THEMES.find(x=>x[0]===curTheme())||THEMES[0];return '<button class="out" data-act="theme" title="外觀：'+t[2]+'（點一下切換）" aria-label="切換外觀，目前'+t[2]+'">'+t[1]+'</button>'}
 function identityBanner(){
