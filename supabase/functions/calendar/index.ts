@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     if (res[0].status !== 200 && res.every((r) => r.status !== 200)) return json({ ok: false, error: res[0].status === 404 || res[0].status === 403 ? 'not_shared' : 'google_error', detail: res[0].j?.error?.message }, 502);
     const calendars = cals.map((c, i) => ({ id: c.id, name: c.name || res[i].j?.summary || c.id, color: PALETTE[i % PALETTE.length], ok: res[i].status === 200, hide: cfg.hidden.includes(c.id) }));
     const events = res.flatMap((r, i) => r.status !== 200 ? [] : (r.j.items ?? []).filter((e: { status?: string }) => e.status !== 'cancelled').map((e: Record<string, unknown>) => ({
-      summary: e.summary, start: e.start, end: e.end, location: e.location, htmlLink: e.htmlLink, cal: cals[i].id,
+      id: e.id, summary: e.summary, start: e.start, end: e.end, location: e.location, htmlLink: e.htmlLink, cal: cals[i].id,
     })));
     const body = { ok: true, events, calendars };
     memo.set(key, { at: Date.now(), body });

@@ -18,6 +18,8 @@
 | `js/config.js` | Supabase 網址與**公開**金鑰 |
 | `js/db.js` | 把 Supabase 包成工作台使用的資料介面，含即時同步 |
 | `supabase/schema.sql` | 資料表、權限規則、頭貼儲存空間。可重複執行 |
+| `supabase/meetings.sql` | 會議記錄、逐字稿分段、音檔空間、個人 Google 日曆授權（schema.sql 之後執行） |
+| `js/meet.js` | 會議錄音、逐字稿與重點；在週曆編輯自己的 Google 日曆 |
 | `fonts/` | 源泉圓體（SIL Open Font License）子集 |
 
 ## 權限

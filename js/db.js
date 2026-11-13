@@ -5,7 +5,7 @@
 // 每張表的欄位都是 (id text, data jsonb)。
 (function () {
   'use strict';
-  const TABLES = new Set(['members', 'depts', 'projects', 'tasks', 'templates', 'goals', 'manuals', 'todos', 'daily', 'comments', 'prefs', 'gifts', 'gift_draws', 'leaves']);
+  const TABLES = new Set(['members', 'depts', 'projects', 'tasks', 'templates', 'goals', 'manuals', 'todos', 'daily', 'comments', 'prefs', 'gifts', 'gift_draws', 'leaves', 'meetings']);
   const genId = () => { const a = new Uint8Array(15); crypto.getRandomValues(a); return Array.from(a, b => (b % 36).toString(36)).join('').slice(0, 20); };
   const clean = o => JSON.parse(JSON.stringify(o === undefined ? null : o));
 
