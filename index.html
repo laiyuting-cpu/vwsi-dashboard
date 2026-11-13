@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-13a">
+<meta name="app-ver" content="2026-11-13b">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -623,6 +623,14 @@ body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 .jx-src label{display:grid;grid-template-columns:20px 1fr;gap:2px 8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
 .jx-src label:has(input:checked){border-color:var(--blue);background:var(--blue-soft)}
 .jx-src .hint{grid-column:2}
+.jx-types{display:flex;flex-wrap:wrap;gap:6px}
+.jx-types label{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;padding:6px 12px;cursor:pointer;min-width:96px}
+.jx-types input{position:absolute;opacity:0;width:0;height:0}
+.jx-types label:has(input:checked){border-color:var(--blue);background:var(--blue-soft)}
+.jx-types label:has(input:checked) b{color:var(--blue)}
+.jx-types label:has(input:focus-visible){outline:2px solid var(--blue)}
+.jx-types .hint{font-size:11px}
+.jx-meta select.jx-tsel{width:auto;padding:1px 6px;font-size:13px;border-radius:6px}
 .jx-note{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--ink-2);line-height:1.6}
 .jx-note.warn,.jx-prog.warn{background:var(--amber-soft);color:var(--ink)}
 .jx-split{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start}

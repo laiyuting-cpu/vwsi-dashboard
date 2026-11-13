@@ -21,7 +21,7 @@ type Part = { n: number; path: string; mime: string; dur?: number; off?: number 
 type MData = {
   owner: string; title?: string; autoTitle?: boolean; date?: string; status?: string;
   file?: boolean; dur?: number; parts?: Part[]; gfile?: { uri: string; mime: string; exp: number; path: string };
-  people?: string[]; vocab?: string; speakers?: Record<string, string>; shared?: string[];
+  people?: string[]; vocab?: string; type?: string; speakers?: Record<string, string>; shared?: string[];
   createdAt?: string; purged?: boolean;
 };
 
@@ -92,22 +92,53 @@ const LINES_SCHEMA = {
   },
   required: ['lines'],
 };
-const SUM_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    title: { type: 'STRING' },
-    points: { type: 'ARRAY', items: { type: 'STRING' } },
-    decisions: { type: 'ARRAY', items: { type: 'STRING' } },
-    todos: { type: 'ARRAY', items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, owner: { type: 'STRING' }, due: { type: 'STRING' } }, required: ['text', 'owner', 'due'] } },
-    questions: { type: 'ARRAY', items: { type: 'STRING' } },
+// 會議類型：每種類型整理成不同段落。todos＝下一步行動。
+type TypeDef = { label: string; intro: string; sections: [string, string][]; todo: string };
+const TYPES: Record<string, TypeDef> = {
+  general: {
+    label: '一般會議', intro: '這是一場內部會議。',
+    sections: [['重點', '3～8 點，每點一句話，具體寫出討論了什麼、結論是什麼'], ['決議', '會議中明確做出的決定'], ['待確認', '還沒有結論、需要再確認的事']],
+    todo: '會後要做的事',
   },
-  required: ['title', 'points', 'decisions', 'todos', 'questions'],
+  partner: {
+    label: '對外洽談', intro: '這是和客戶或合作單位的洽談會議。',
+    sections: [['對方背景與需求', '對方是誰、想解決什麼、在意什麼'], ['我們提出的內容', '我方提出的方案、服務、報價'], ['對方回饋與疑慮', '對方的反應、顧慮、提出的條件'], ['共識與條件', '雙方同意的事；金額、日期、人數、場次等數字照原話寫，不要估算'], ['待確認', '還沒談定、需要再確認的事']],
+    todo: '會後雙方要做的事（標明是我方還是對方）',
+  },
+  interview: {
+    label: '面試', intro: '這是一場徵才面試。只整理事實與應徵者的原話重點，不要評斷是否錄取、不要推測個人隱私。',
+    sections: [['應徵者背景與經歷', '學經歷、相關經驗'], ['回答重點', '依面試問題整理應徵者的回答'], ['亮點', '回答中具體展現的能力或經驗（要有對話依據）'], ['需要再確認的地方', '回答不清楚、前後不一致或還沒問到的部分'], ['後續安排', '面試中提到的時程、下一關、需要補的資料']],
+    todo: '面試後要做的事（例如安排下一關、寄資料）；沒有提到就回傳空陣列',
+  },
+  brainstorm: {
+    label: '腦力激盪', intro: '這是一場發想討論會議。',
+    sections: [['提出的點子', '同類的點子合併，能判斷時標註是誰提出的'], ['大家傾向的方向', '討論中獲得較多支持的點子與理由'], ['需要驗證或研究', '還要查證、試做或找人確認的事']],
+    todo: '會後要做的事',
+  },
+  oneonone: {
+    label: '1 對 1', intro: '這是一場主管與夥伴的 1 對 1 面談。語氣保持中性，不要推測情緒或健康狀況。',
+    sections: [['近況與進度', '夥伴分享的工作近況'], ['討論重點', '這次聊到的主題與結論'], ['需要的支援', '夥伴提出需要的協助或資源'], ['共識', '雙方同意的做法']],
+    todo: '會後雙方要做的事',
+  },
 };
+const typeOf = (m: MData) => TYPES[m.type || ''] ? (m.type as string) : 'general';
+function sumSchema(def: TypeDef) {
+  const props: Record<string, unknown> = { title: { type: 'STRING' } };
+  def.sections.forEach((_, i) => { props['s' + i] = { type: 'ARRAY', items: { type: 'STRING' } }; });
+  props.todos = { type: 'ARRAY', items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, owner: { type: 'STRING' }, due: { type: 'STRING' } }, required: ['text', 'owner', 'due'] } };
+  return { type: 'OBJECT', properties: props, required: Object.keys(props) };
+}
 const BASE_VOCAB = '職掘、島輝、I&I、Daily Mission、WBS、拇指園、營隊、引導員、場控、冬令營、夏令營、家扶、康軒';
 
+// 公司夥伴名單（從工作台成員自動帶入）。「小賴（Teresa）」會拆成「小賴／Teresa」兩個稱呼，aliases 欄位可再補暱稱。
 async function memberNames() {
   const { data } = await svc().from('members').select('data');
-  return (data ?? []).filter((r) => r.data?.active !== false).map((r) => String(r.data?.name || '')).filter(Boolean);
+  return (data ?? []).filter((r) => r.data?.active !== false && r.data?.name).map((r) => {
+    const raw = String(r.data.name);
+    const parts = raw.split(/[（）()、,，/／]/).map((x) => x.trim()).filter(Boolean);
+    const extra = Array.isArray(r.data.aliases) ? r.data.aliases.map(String) : [];
+    return [...new Set([...parts, ...extra])].join('／');
+  });
 }
 
 async function doSeg(id: string, m: MData, n: number) {
@@ -149,6 +180,7 @@ async function doSeg(id: string, m: MData, n: number) {
   const labels = [...new Set(done.flatMap((s) => (s.lines as Line[]).map((l) => l.sp)))].slice(0, 12);
   const tail = (done.at(-1)?.lines as Line[] | undefined)?.slice(-6).map((l) => `${l.sp}：${l.text}`).join('\n') || '';
   const people = [...new Set([...(m.people ?? [])])].filter(Boolean).join('、');
+  const team = (await memberNames()).join('、');
 
   const prompt = [
     '你是專業的會議逐字稿紀錄員。請把這段會議錄音完整轉成逐字稿。',
@@ -159,7 +191,10 @@ async function doSeg(id: string, m: MData, n: number) {
     '- 依說話者分段，每次換人說話就換一行。同一人連續講很久時，大約每 30 秒分一行。',
     '- sp 是說話者標籤。能從對話中確定是誰（例如被叫名字、自我介紹）就用姓名，否則用「說話者A」「說話者B」…。同一個人在整場會議要用同一個標籤。',
     labels.length ? `- 前面段落已使用的說話者標籤：${labels.join('、')}。同一個人請沿用。` : '',
-    people ? `- 可能的與會者：${people}` : '',
+    `- 職掘公司夥伴（對話中出現這些名字時請照這個寫法）：${team}`,
+    people ? `- 這場會議的與會者：${people}` : '',
+    m.type === 'interview' ? '- 這是一場面試，通常是面試官提問、應徵者回答；不知道應徵者姓名時用「應徵者」當標籤。' : '',
+    m.type === 'partner' ? '- 這是和公司外部（客戶、合作單位）的會議；外部人士不知道姓名時用「對方A」「對方B」當標籤。' : '',
     `- 可能出現的專有名詞：${[BASE_VOCAB, m.vocab].filter(Boolean).join('、')}`,
     '- t 是這一行開始說話的時間，格式 M:SS 或 H:MM:SS。',
     '- 沒有人說話的部分不要輸出；整段都沒有語音時 lines 回傳空陣列。',
@@ -186,22 +221,22 @@ async function doSummary(id: string, m: MData) {
   const text = all.map((l) => `[${mmss(l.t)}] ${map[l.sp] || l.sp}：${l.text}`).join('\n');
   const names = await memberNames();
   const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+  const def = TYPES[typeOf(m)];
   const prompt = [
-    '以下是一場會議的逐字稿。請用繁體中文（台灣用語）整理成會議紀錄。',
+    `以下是一場會議的逐字稿。請用繁體中文（台灣用語）整理成會議紀錄。${def.intro}`,
     `今天是 ${today}（會議日期 ${m.date || today}）。公司是「職掘」，一家青少年職涯探索教育公司。`,
-    `公司夥伴名單：${names.join('、')}`,
-    '輸出：',
+    `公司夥伴名單（斜線是同一個人的不同稱呼）：${names.join('、')}`,
+    '輸出欄位：',
     '- title：12 字以內的會議標題。',
-    '- points：3～8 點重點，每點一句話，具體寫出討論了什麼、結論是什麼。',
-    '- decisions：會議中明確做出的決定；沒有就回傳空陣列。',
-    '- todos：會後要做的事。text 用動詞開頭；owner 填負責人姓名（盡量對應公司夥伴名單裡的名字，沒有明確負責人就空字串）；due 填 YYYY-MM-DD（有提到期限才填，「下週三」這類請換算成日期，沒有就空字串）。',
-    '- questions：還沒有結論、需要再確認的事；沒有就回傳空陣列。',
+    ...def.sections.map(([h, d], i) => `- s${i}（${h}）：${d}。每點一句話；沒有就回傳空陣列。`),
+    `- todos（下一步行動）：${def.todo}。text 用動詞開頭；owner 填負責人（公司夥伴請用名單裡斜線前的第一個名字，外部人士寫單位或稱呼，沒有明確負責人就空字串）；due 填 YYYY-MM-DD（有提到期限才填，「下週三」這類請換算成日期，沒有就空字串）。`,
     '不要編造逐字稿裡沒有的內容。',
     '',
     '逐字稿：',
     text,
   ].join('\n');
-  return await gemini([{ text: prompt }], SUM_SCHEMA, 8192);
+  const out = await gemini([{ text: prompt }], sumSchema(def), 8192);
+  return { title: out.title, sections: def.sections.map(([h], i) => ({ h, items: (out['s' + i] ?? []).map(String).filter(Boolean) })), todos: out.todos ?? [], type: typeOf(m) };
 }
 
 async function cleanup() {
@@ -257,7 +292,8 @@ Deno.serve(async (req) => {
     if (q.mode === 'summary') {
       const s = await doSummary(id, m);
       const patch: Record<string, unknown> = {
-        summary: { points: s.points ?? [], decisions: s.decisions ?? [], todos: (s.todos ?? []).map((t: Record<string, string>) => ({ text: t.text, owner: t.owner || '', due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || '') ? t.due : '' })), questions: s.questions ?? [] },
+        summary: { type: s.type, sections: s.sections, todos: (s.todos ?? []).map((t: Record<string, string>) => ({ text: t.text, owner: t.owner || '', due: /^\d{4}-\d{2}-\d{2}$/.test(t.due || '') ? t.due : '' })) },
+        todoState: {},
         status: 'done', summarizedAt: new Date().toISOString(),
       };
       if (m.autoTitle && s.title) { patch.title = String(s.title).slice(0, 40); patch.autoTitle = false; }

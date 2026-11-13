@@ -12,6 +12,23 @@
   const toast = (m) => window.JJ.toast(m);
   const me = () => window.JJ.me();
 
+  // 會議類型（後端 meeting 函式有對應的整理格式）
+  const TYPES = [['general', '一般會議', '重點、決議、待確認'], ['partner', '對外洽談', '對方需求、共識與條件'], ['interview', '面試', '背景、回答重點、待確認'], ['brainstorm', '腦力激盪', '點子、傾向方向'], ['oneonone', '1 對 1', '近況、需要的支援、共識']];
+  const typeLabel = (t) => (TYPES.find((x) => x[0] === t) || TYPES[0])[1];
+  function guessType(o) {
+    const t = String((o && o.title) || '');
+    if (/面試|interview/i.test(t)) return 'interview';
+    if (/1\s*(對|on|:)\s*1|一對一/i.test(t)) return 'oneonone';
+    if (/腦力激盪|發想|brainstorm/i.test(t)) return 'brainstorm';
+    if (o && o.external) return 'partner';
+    return 'general';
+  }
+  // 舊格式（points/decisions/questions）轉成段落
+  function secs(sm) {
+    if (!sm) return [];
+    if (Array.isArray(sm.sections)) return sm.sections;
+    return [['重點', sm.points], ['決議', sm.decisions], ['待確認', sm.questions]].map(([h, items]) => ({ h, items: items || [] }));
+  }
   const M = { list: {}, sel: null, tab: 'sum', segs: {}, segSub: null, busy: {}, ready: null, rec: null, audioUrl: {}, tdProj: '', slackCh: '' };
   const G = { st: null, ev: null, cals: null, gis: null, modal: null };
 
@@ -164,7 +181,7 @@
     const data = {
       owner: m.id, title: title || '會議 ' + J().fmtD(localDate()).split(' ')[0] + ' ' + hm(), autoTitle: !title,
       date: localDate(), startedAt: nowISO(), createdAt: nowISO(), status: 'recording', source: o.source || 'mic',
-      parts: [], dur: 0, shared: [], people: [...new Set([m.name, ...people])], eventId: o.eventId || '', eventCal: o.eventCal || '', vocab: '',
+      parts: [], dur: 0, shared: [], people: [...new Set([m.name, ...people])], eventId: o.eventId || '', eventCal: o.eventCal || '', vocab: '', type: o.type || 'general',
     };
     let ref;
     try { ref = await S().db.collection('meetings').add(data); } catch (e) {
@@ -314,7 +331,7 @@
     toast('上傳中…');
     const dur = Math.round(await fileDur(file));
     const title = (o && o.title) || file.name.replace(/\.[^.]+$/, '').slice(0, 40);
-    const data = { owner: m.id, title, autoTitle: !(o && o.title) && /^(New Recording|新錄音|錄音|audio|record)/i.test(title), date: localDate(), startedAt: nowISO(), createdAt: nowISO(), status: 'uploading', source: 'file', file: true, parts: [], dur, shared: [], people: [m.name, ...((o && o.people) || [])], eventId: (o && o.eventId) || '', vocab: '' };
+    const data = { owner: m.id, title, autoTitle: !(o && o.title) && /^(New Recording|新錄音|錄音|audio|record)/i.test(title), date: localDate(), startedAt: nowISO(), createdAt: nowISO(), status: 'uploading', source: 'file', file: true, parts: [], dur, shared: [], people: [m.name, ...((o && o.people) || [])], eventId: (o && o.eventId) || '', vocab: '', type: (o && o.type) || 'general' };
     let ref;
     try { ref = await S().db.collection('meetings').add(data); } catch (e) { toast('無法建立會議記錄'); return; }
     M.list[ref.id] = { id: ref.id, ...data };
@@ -338,6 +355,8 @@
     if (canTab) b += '<div class="field"><span>收音方式</span><div class="jx-src">' +
       '<label><input type="radio" name="jx-src" value="mic" ' + (src === 'mic' ? 'checked' : '') + '><b>🎙 實體會議</b><span class="hint">用電腦麥克風收音</span></label>' +
       '<label><input type="radio" name="jx-src" value="tab" ' + (src === 'tab' ? 'checked' : '') + '><b>💻 線上會議</b><span class="hint">Google Meet 等用 Chrome 開的會議：選擇會議分頁並勾選「分享分頁音訊」</span></label></div></div>';
+    const ty = M.startOpts.type || guessType(M.startOpts);
+    b += '<div class="field"><span>會議類型（決定結束後怎麼整理）</span><div class="jx-types">' + TYPES.map(([k, l, d]) => '<label><input type="radio" name="jx-type" value="' + k + '" ' + (k === ty ? 'checked' : '') + '><b>' + l + '</b><span class="hint">' + d + '</span></label>').join('') + '</div></div>';
     if (M.startOpts.people && M.startOpts.people.length) b += '<div class="hint">與會者：' + esc(M.startOpts.people.join('、')) + '</div>';
     b += '<div class="jx-note">📣 開始前請告知與會者會議正在錄音。' + (isMob() ? '<br>📱 錄音時請保持螢幕亮著、不要切換 App，否則手機可能會暫停錄音。' : '<br>Zoom、Teams 等電腦 App 的聲音瀏覽器抓不到：請開喇叭，用「實體會議」收音。') + '</div>';
     if (M.ready === false) b += '<div class="jx-note warn">⚠️ 還沒設定轉錄用的 Gemini 金鑰：可以先錄音，設定好之後再到「會議記錄」按「繼續整理」。</div>';
@@ -365,7 +384,7 @@
     const list = L.length ? L.map((m) => {
       const mine = m.owner === my.id; const ow = S().members[m.owner];
       return '<button class="jx-li' + (m.id === M.sel ? ' on' : '') + '" data-jx="sel" data-id="' + esc(m.id) + '"><div class="jx-lt">' + esc(m.title || '會議') + '</div><div class="jx-lm">' +
-        '<span>' + esc(J().fmtD(m.date || '')) + '</span>' + (m.dur ? '<span>' + durTxt(m.dur) + '</span>' : '') + statusPill(m) +
+        '<span>' + esc(J().fmtD(m.date || '')) + '</span>' + (m.dur ? '<span>' + durTxt(m.dur) + '</span>' : '') + (m.type && m.type !== 'general' ? '<span>' + esc(typeLabel(m.type)) + '</span>' : '') + statusPill(m) +
         (!mine && ow ? '<span>' + esc(ow.name) + ' 分享</span>' : (m.shared || []).length ? '<span title="已分享">🔗 ' + m.shared.length + '</span>' : '') + '</div></button>';
     }).join('') : '<div class="empty">還沒有會議記錄。<br>按「⏺ 開始錄音」，或上傳手機錄好的音檔。</div>';
     const det = M.sel ? detail(M.list[M.sel]) : '<div class="panel"><div class="empty-illo">' + (J().illo ? J().illo(3) : '') + '<span>選一場會議看重點和逐字稿</span></div></div>';
@@ -389,7 +408,7 @@
     let h = '<div class="panel jx-dpanel"><div class="jx-dh">';
     h += '<button class="btn ghost sm only-mob" data-jx="unsel">‹ 列表</button>';
     h += '<input type="text" class="jx-title" id="jx-mtitle" data-jxf="title" data-id="' + esc(m.id) + '" value="' + esc(m.title || '') + '" ' + D + ' maxlength="60" aria-label="會議名稱">';
-    h += '<div class="jx-meta"><span>' + esc(J().fmtD(m.date || '')) + ' ' + esc((m.startedAt ? new Date(m.startedAt) : new Date()).toTimeString().slice(0, 5)) + '</span>' + (m.dur ? '<span>' + durTxt(m.dur) + '</span>' : '') + '<span>' + ({ mic: '🎙 實體', tab: '💻 線上', file: '⬆ 上傳' }[m.source] || '') + '</span>' + statusPill(m) + (!own ? '<span>' + esc((S().members[m.owner] || {}).name || '') + ' 錄的</span>' : '') + '</div>';
+    h += '<div class="jx-meta"><span>' + esc(J().fmtD(m.date || '')) + ' ' + esc((m.startedAt ? new Date(m.startedAt) : new Date()).toTimeString().slice(0, 5)) + '</span>' + (m.dur ? '<span>' + durTxt(m.dur) + '</span>' : '') + '<span>' + ({ mic: '🎙 實體', tab: '💻 線上', file: '⬆ 上傳' }[m.source] || '') + '</span>' + (own ? '<select class="jx-tsel" data-jxf="type" data-id="' + esc(m.id) + '" aria-label="會議類型">' + TYPES.map(([k, l]) => '<option value="' + k + '" ' + (k === (m.type || 'general') ? 'selected' : '') + '>' + l + '</option>').join('') + '</select>' : '<span>' + esc(typeLabel(m.type)) + '</span>') + statusPill(m) + (!own ? '<span>' + esc((S().members[m.owner] || {}).name || '') + ' 錄的</span>' : '') + '</div>';
     // 分享
     const sh = m.shared || [];
     if (own) {
@@ -410,7 +429,7 @@
     if (errs.length && !busy) h += '<div class="jx-prog warn">第 ' + errs.map((n) => n + 1).join('、') + ' 段轉錄失敗：' + esc(String((segs[errs[0]] || {}).error || '').slice(0, 120)) + ' <button class="btn sm" data-jx="resume" data-id="' + esc(m.id) + '" data-force="1">重試</button></div>';
     // 分頁
     const sm = m.summary || null; const todos = (sm && sm.todos) || [];
-    h += '<div class="tabs2" style="margin:0;padding:0 14px">' + [['sum', '重點'], ['todo', '待辦' + (todos.length ? ' ' + todos.length : '')], ['tx', '逐字稿']].map(([k, l]) => '<button data-jx="tab" data-v="' + k + '" aria-pressed="' + (M.tab === k) + '">' + l + '</button>').join('') + '</div><div class="jx-body">';
+    h += '<div class="tabs2" style="margin:0;padding:0 14px">' + [['sum', '重點'], ['todo', '下一步行動' + (todos.length ? ' ' + todos.length : '')], ['tx', '逐字稿']].map(([k, l]) => '<button data-jx="tab" data-v="' + k + '" aria-pressed="' + (M.tab === k) + '">' + l + '</button>').join('') + '</div><div class="jx-body">';
     if (M.tab === 'tx') h += txView(m, segs, exp, own);
     else if (M.tab === 'todo') h += todoView(m, todos, own);
     else h += sumView(m, sm, own);
@@ -421,10 +440,10 @@
   function sumView(m, sm, own) {
     if (!sm) return '<div class="empty">' + (m.status === 'recording' ? '錄音結束後會自動整理重點。' : '重點整理好之後會出現在這裡。') + '</div>';
     const ul = (a) => '<ul class="jx-ul">' + a.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>';
-    let h = '<h3>重點</h3>' + (sm.points.length ? ul(sm.points) : '<p class="hint">沒有。</p>');
-    if (sm.decisions.length) h += '<h3>決議</h3>' + ul(sm.decisions);
-    if (sm.questions.length) h += '<h3>待確認</h3>' + ul(sm.questions);
-    if (sm.todos.length) h += '<h3>待辦</h3><ul class="jx-ul">' + sm.todos.map((t) => '<li>' + esc(t.text) + (t.owner ? '<span class="hint">・' + esc(t.owner) + '</span>' : '') + (t.due ? '<span class="hint">・' + esc(J().fmtD(t.due)) + '</span>' : '') + '</li>').join('') + '</ul>';
+    let h = '';
+    if (sm.type && sm.type !== (m.type || 'general')) h += '<div class="jx-note warn" style="margin-top:10px">這份重點是用「' + esc(typeLabel(sm.type)) + '」的格式整理的。' + (own ? '<button class="btn sm" data-jx="resum" data-id="' + esc(m.id) + '">改用「' + esc(typeLabel(m.type)) + '」重新整理</button>' : '') + '</div>';
+    secs(sm).forEach((sec, i) => { if (sec.items.length || i === 0) h += '<h3>' + esc(sec.h) + '</h3>' + (sec.items.length ? ul(sec.items) : '<p class="hint">沒有。</p>'); });
+    if (sm.todos.length) h += '<h3>下一步行動</h3><ul class="jx-ul">' + sm.todos.map((t) => '<li>' + esc(t.text) + (t.owner ? '<span class="hint">・' + esc(t.owner) + '</span>' : '') + (t.due ? '<span class="hint">・' + esc(J().fmtD(t.due)) + '</span>' : '') + '</li>').join('') + '</ul>';
     // Slack
     const chans = slackOptions(m);
     h += '<div class="jx-actions"><button class="btn sm" data-jx="copy" data-id="' + esc(m.id) + '">📋 複製會議紀錄</button>' +
@@ -441,8 +460,8 @@
     const seen = new Set(); return o.filter(([v]) => (seen.has(v) ? false : seen.add(v)));
   }
   function todoView(m, todos, own) {
-    if (!m.summary) return '<div class="empty">重點整理好之後，會議中提到的待辦會列在這裡。</div>';
-    if (!todos.length) return '<div class="empty">這場會議沒有整理出待辦。</div>';
+    if (!m.summary) return '<div class="empty">重點整理好之後，會議中提到的下一步行動會列在這裡。</div>';
+    if (!todos.length) return '<div class="empty">這場會議沒有需要追蹤的下一步行動。</div>';
     const my = me(); const st = m.todoState || {};
     const projs = Object.values(S().projects).filter((p) => p.status !== 'archived' && J().visibleProjectIds().has(p.id));
     let h = '<div class="jx-tdhead"><span class="hint">加到專案任務時放進：</span><select id="jx-tdproj" aria-label="加到哪個專案"><option value="">選擇專案…</option>' + projs.map((p) => '<option value="' + esc(p.id) + '" ' + (p.id === M.tdProj ? 'selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select></div>';
@@ -486,12 +505,10 @@
     return expected(m).flatMap((n) => ((segs[n] || {}).status === 'done' ? segs[n].lines : [])).map((l) => '[' + mmss(l.t) + '] ' + lineName(m, l.sp) + '：' + l.text).join('\n');
   }
   function summaryText(m) {
-    const sm = m.summary || { points: [], decisions: [], todos: [], questions: [] };
-    const L = ['📝 ' + (m.title || '會議') + '（' + J().fmtD(m.date || '') + '）', ''];
-    if (sm.points.length) { L.push('*重點*'); sm.points.forEach((x) => L.push('• ' + x)); L.push(''); }
-    if (sm.decisions.length) { L.push('*決議*'); sm.decisions.forEach((x) => L.push('• ' + x)); L.push(''); }
-    if (sm.todos.length) { L.push('*待辦*'); sm.todos.forEach((t, i) => { const s = (m.todoState || {})[i] || {}; const o = s.owner ? (S().members[s.owner] || {}).name : t.owner; const d = s.due !== undefined ? s.due : t.due; L.push('☐ ' + t.text + (o ? '（' + o + '）' : '') + (d ? '・' + J().fmtD(d) : '')); }); L.push(''); }
-    if (sm.questions.length) { L.push('*待確認*'); sm.questions.forEach((x) => L.push('• ' + x)); }
+    const sm = m.summary || { sections: [], todos: [] };
+    const L = ['📝 ' + (m.title || '會議') + '（' + J().fmtD(m.date || '') + '・' + typeLabel(m.type) + '）', ''];
+    secs(sm).forEach((sec) => { if (sec.items.length) { L.push('*' + sec.h + '*'); sec.items.forEach((x) => L.push('• ' + x)); L.push(''); } });
+    if (sm.todos.length) { L.push('*下一步行動*'); sm.todos.forEach((t, i) => { const s = (m.todoState || {})[i] || {}; const o = s.owner ? (S().members[s.owner] || {}).name : t.owner; const d = s.due !== undefined ? s.due : t.due; L.push('☐ ' + t.text + (o ? '（' + o + '）' : '') + (d ? '・' + J().fmtD(d) : '')); }); L.push(''); }
     return L.join('\n').trim();
   }
   async function copy(t) {
@@ -726,7 +743,9 @@
     const x = G.edit; if (!x) return; const e = x.e || {};
     const names = (e.attendees || []).map((a) => { const m = J().activeMembers().find((z) => z.email && z.email.toLowerCase() === String(a.email).toLowerCase()); return m ? m.name : (a.name || ''); }).filter(Boolean);
     G.edit = null;
-    openStart({ title: e.summary || '', people: names, eventId: x.id, eventCal: x.cal, source: e.meet && !isMob() ? 'tab' : 'mic' });
+    const mails = new Set(J().activeMembers().map((z) => String(z.email || '').toLowerCase()).filter(Boolean));
+    const external = (e.attendees || []).some((a) => a.email && !mails.has(String(a.email).toLowerCase()) && !/vwsicamp\.com$|vwsi\.campmanagement/i.test(a.email));
+    openStart({ title: e.summary || '', people: names, eventId: x.id, eventCal: x.cal, source: e.meet && !isMob() ? 'tab' : 'mic', external });
   }
 
   /* ---------- 事件 ---------- */
@@ -740,8 +759,9 @@
       case 'go': {
         const t = (document.getElementById('jx-title') || {}).value || '';
         const src = (document.querySelector('input[name="jx-src"]:checked') || {}).value || 'mic';
+        const type = (document.querySelector('input[name="jx-type"]:checked') || {}).value || 'general';
         a.disabled = true;
-        await startRec({ ...(M.startOpts || {}), title: t, source: src });
+        await startRec({ ...(M.startOpts || {}), title: t, source: src, type });
         a.disabled = false; break;
       }
       case 'pause': pauseRec(); break;
@@ -793,12 +813,17 @@
   });
   document.addEventListener('change', async (ev) => {
     const el = ev.target;
-    if (el.id === 'jx-file' || el.id === 'jx-file2') { const f = el.files && el.files[0]; const o = M.startOpts ? { ...M.startOpts, title: (document.getElementById('jx-title') || {}).value || '' } : {}; el.value = ''; if (f) uploadFile(f, o); return; }
+    if (el.id === 'jx-file' || el.id === 'jx-file2') { const f = el.files && el.files[0]; const o = M.startOpts ? { ...M.startOpts, title: (document.getElementById('jx-title') || {}).value || '', type: (document.querySelector('input[name="jx-type"]:checked') || {}).value } : {}; el.value = ''; if (f) uploadFile(f, o); return; }
     if (el.id === 'jx-tdproj') { M.tdProj = el.value; return; }
     if (el.id === 'jx-slack') { M.slackCh = el.value; return; }
     const k = el.dataset && el.dataset.jxf; if (!k) return;
     const id = el.dataset.id; const m = M.list[id];
     if (k === 'title') { const v = el.value.trim(); if (v && v !== m.title) await J().W(S().db.doc('meetings/' + id).update({ title: v, autoTitle: false }), '已改名'); }
+    else if (k === 'type') {
+      m.type = el.value;
+      await J().W(S().db.doc('meetings/' + id).update({ type: el.value }), '已改成「' + typeLabel(el.value) + '」');
+      if (m.summary && m.status !== 'recording') { process(id, { resum: true }); toast('用「' + typeLabel(el.value) + '」的格式重新整理中…'); }
+    }
     else if (k === 'share' && el.value) { const sh = [...new Set([...(m.shared || []), el.value])]; const nm = (S().members[el.value] || {}).name; await J().W(S().db.doc('meetings/' + id).update({ shared: sh }), '已分享給 ' + nm); }
     else if (k === 'spk') { const sp = { ...(m.speakers || {}) }; const v = el.value.trim(); if (v) sp[el.dataset.l] = v; else delete sp[el.dataset.l]; m.speakers = sp; await J().W(S().db.doc('meetings/' + id).update({ speakers: sp })); }
     else if (k === 'tdOwner') setTodoState(m, Number(el.dataset.i), { owner: el.value });
