@@ -42,6 +42,30 @@ function parseFrom(v: string) {
 }
 const decodeEntities = (s: string) => s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 
+// 用 Gemini 判斷哪些是廣告／行銷／電子報（回傳要略過的 id）。失敗時回傳 null，下次再判斷。
+const GKEY = () => Deno.env.get('GEMINI_API_KEY') || '';
+const GMODELS = () => (Deno.env.get('GEMINI_MODEL') || 'gemini-flash-latest,gemini-2.5-flash').split(',').map((x) => x.trim()).filter(Boolean);
+type Cand = { id: string; from: string; addr: string; subject: string; snippet: string; bulk: boolean };
+async function findAds(cs: Cand[]): Promise<Set<string> | null> {
+  if (!cs.length) return new Set();
+  if (!GKEY()) return null;
+  const prompt = '以下是一家台灣青少年職涯教育公司公用信箱的未讀信。請挑出「廣告、行銷、促銷、電子報、活動宣傳、社群平台推播、求職網站配對推薦、徵才廣告、優惠或會員回饋」這類不需要同事處理的信。\n' +
+    '要保留（不要挑）的：真人寄來的信、客戶／家長／合作單位／學校／政府機關的往來、報名或訂單通知、付款／帳單／發票、帳號安全警示、退信通知、會議邀請、需要回覆或處理的事情。拿不準就保留。\n' +
+    'bulk=true 代表信件有「取消訂閱」標頭，通常是群發信，但仍要看內容判斷。\n\n' + JSON.stringify(cs.map((c, i) => ({ i, from: c.from, addr: c.addr, subject: c.subject, snippet: c.snippet.slice(0, 140), bulk: c.bulk })));
+  const body = { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', properties: { ads: { type: 'ARRAY', items: { type: 'INTEGER' } } }, required: ['ads'] } } };
+  for (const model of GMODELS()) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GKEY() }, body: JSON.stringify(body) });
+      const j = await r.json();
+      const t = j.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('');
+      if (!t) continue;
+      const ads: number[] = JSON.parse(t).ads ?? [];
+      return new Set(ads.filter((i) => cs[i]).map((i) => cs[i].id));
+    } catch { /* 換下一個模型 */ }
+  }
+  return null;
+}
+
 // 檢查一個信箱：更新未讀數、新增新信、刪掉已讀或過期的
 async function pollBox(b: Box, first = false) {
   const db = svc();
@@ -57,20 +81,30 @@ async function pollBox(b: Box, first = false) {
     const haveSet = new Set((have ?? []).map((r) => r.id));
     const gone = [...haveSet].filter((id) => !ids.includes(id));
     if (gone.length) await db.from('mail_msgs').delete().eq('mailbox', b.id).in('id', gone);
-    const fresh = ids.filter((id) => !haveSet.has(id)).slice(0, 30);
+    const skip = new Set<string>((b.data?.skip ?? []).filter((id: string) => ids.includes(id)));
+    const redo = b.data?.adv !== 1; // 還沒用過廣告過濾的信箱：已有的信也重新判斷一次
+    const fresh = ids.filter((id) => (redo || !haveSet.has(id)) && !skip.has(id)).slice(0, 30);
     const rows = (await Promise.all(fresh.map(async (id) => {
-      const m = await (await fetch(`${GM}/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`, { headers: H })).json();
+      const m = await (await fetch(`${GM}/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`, { headers: H })).json();
       if (m.error) return null;
       const f = parseFrom(hdr(m, 'From'));
       return {
         mailbox: b.id, id, thread: m.threadId, from_name: f.name.slice(0, 120), from_addr: f.addr.slice(0, 200),
         subject: (hdr(m, 'Subject') || '（無主旨）').slice(0, 300), snippet: decodeEntities(String(m.snippet || '')).slice(0, 200),
-        at: m.internalDate ? new Date(Number(m.internalDate)).toISOString() : now, notified: first,
+        at: m.internalDate ? new Date(Number(m.internalDate)).toISOString() : now, notified: first || haveSet.has(id),
+        _bulk: !!hdr(m, 'List-Unsubscribe') || /bulk|list/i.test(hdr(m, 'Precedence')),
       };
-    }))).filter(Boolean);
-    if (rows.length) await db.from('mail_msgs').upsert(rows);
-    await db.rpc('doc_patch', { tbl: 'mailboxes', doc_id: b.id, patch: { status: 'ok', error: null, unread: Number(lab.messagesUnread ?? ids.length), checkedAt: now } });
-    return { id: b.id, ok: true, added: rows.length };
+    }))).filter(Boolean) as Record<string, any>[];
+    const ads = await findAds(rows.map((r) => ({ id: r.id, from: r.from_name, addr: r.from_addr, subject: r.subject, snippet: r.snippet, bulk: r._bulk })));
+    if (ads) ads.forEach((id) => skip.add(id));
+    // Gemini 暫時判斷不了時，先不顯示群發信，下次再判斷
+    const keep = rows.filter((r) => ads ? !ads.has(r.id) : !r._bulk).map(({ _bulk, ...r }) => r);
+    if (keep.length) await db.from('mail_msgs').upsert(keep);
+    // 之前判斷錯而留下的（例如舊資料）也一併清掉
+    const oldAds = [...haveSet].filter((id) => skip.has(id));
+    if (oldAds.length) await db.from('mail_msgs').delete().eq('mailbox', b.id).in('id', oldAds);
+    await db.rpc('doc_patch', { tbl: 'mailboxes', doc_id: b.id, patch: { status: 'ok', error: null, unread: Number(lab.messagesUnread ?? ids.length), checkedAt: now, skip: [...skip], ...(ads ? { adv: 1 } : {}) } });
+    return { id: b.id, ok: true, added: keep.length, ads: ads?.size ?? null };
   } catch (e) {
     const code = (e as { code?: string }).code || 'error';
     await db.rpc('doc_patch', { tbl: 'mailboxes', doc_id: b.id, patch: { status: code === 'reauth' ? 'reauth' : 'error', error: String((e as Error).message).slice(0, 200), checkedAt: now } });
