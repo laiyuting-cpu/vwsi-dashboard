@@ -23,6 +23,15 @@
     if (d < 1) return '剛剛'; if (d < 60) return Math.round(d) + ' 分鐘前'; if (d < 1440) return Math.round(d / 60) + ' 小時前';
     return J().fmtD(new Date(new Date(iso).getTime() + 8 * 3600e3).toISOString().slice(0, 10)).split(' ')[0];
   };
+  // Google 的英文錯誤訊息轉成看得懂的說明
+  function errText(b) {
+    const e = String(b.error || '');
+    if (b.status === 'reauth' || /invalid_grant|UNAUTHENTICATED/.test(e)) return '授權失效，請按「重新連結」';
+    if (/has not been used|is disabled|SERVICE_DISABLED|accessNotConfigured/i.test(e)) return 'Google Cloud 還沒啟用 Gmail API（管理員到 Google Cloud 啟用後，5 分鐘內會自動恢復）';
+    if (/insufficient|scope|PERMISSION_DENIED/i.test(e)) return '授權時沒有勾選「讀取 Gmail」，請按「重新連結」';
+    if (/quota|rate/i.test(e)) return 'Gmail 暫時限制讀取次數，稍後會自動再試';
+    return '暫時讀不到信件，稍後會自動再試';
+  }
   const visible = () => Object.values(ST.boxes).sort((a, b) => (a.private ? 1 : 0) - (b.private ? 1 : 0) || String(a.label || a.id).localeCompare(String(b.label || b.id)));
   const count = () => visible().filter((b) => !ST.mutes.has(b.id)).reduce((n, b) => n + (ST.msgs[b.id] || []).length, 0);
 
@@ -82,7 +91,7 @@
     if (!boxes.length) h += '<div class="empty">還沒有連結信箱。' + (ST.st && ST.st.admin ? '<br>到「設定 → 公用信箱」連結。' : '') + '</div>';
     h += '<div class="mb-list">' + boxes.map((b) => {
       const ms = ST.msgs[b.id] || []; const mu = ST.mutes.has(b.id);
-      const warn = b.status === 'reauth' ? '<span class="mb-warn">需要重新連結</span>' : b.status === 'error' ? '<span class="mb-warn">讀取失敗</span>' : '';
+      const warn = b.status && b.status !== 'ok' ? '<span class="mb-warn" title="' + esc(errText(b)) + '">' + (b.status === 'reauth' ? '需要重新連結' : '暫時讀不到') + '</span>' : '';
       return '<section class="mb-box' + (mu ? ' muted' : '') + '"><div class="mb-bh"><a href="' + esc(gmailUrl(b.id)) + '" target="_blank" rel="noopener" title="在 Gmail 打開"><b>' + esc(b.label || b.id) + '</b><span class="hint">' + esc(b.id) + '</span></a>' + warn +
         '<span class="mb-n">' + (b.unread ? b.unread + ' 未讀' : '') + '</span><button class="mb-mute" data-jm="mute" data-id="' + esc(b.id) + '" aria-pressed="' + mu + '" title="' + (mu ? '已靜音：不提醒、不發 Slack，點一下取消' : '靜音這個信箱') + '">' + (mu ? '🔕' : '🔔') + '</button></div>' +
         (ms.length ? ms.slice(0, 5).map((m) => '<a class="mb-msg" href="' + esc(gmailUrl(b.id, m.thread)) + '" target="_blank" rel="noopener"><div class="mb-l1"><b>' + esc(m.from_name || m.from_addr) + '</b><span class="hint">' + esc(ago(m.at)) + '</span></div><div class="mb-sub">' + esc(m.subject) + '</div>' + (m.snippet ? '<div class="mb-snip">' + esc(m.snippet) + '</div>' : '') + '</a>').join('') + (ms.length > 5 ? '<a class="mb-more" href="' + esc(gmailUrl(b.id)) + '" target="_blank" rel="noopener">還有 ' + (ms.length - 5) + ' 封 →</a>' : '')
@@ -103,9 +112,9 @@
     if (!st.ready) h += '<p class="hint">Google 授權還沒設定好（GOOGLE_OAUTH_CLIENT_ID）。</p>';
     h += Object.values(ST.boxes).sort((a, b) => String(a.id).localeCompare(String(b.id))).map((b) => {
       const priv = !!b.private; const mineP = priv && b.owner === my.id; const allow = b.allow || [];
-      const stTxt = b.status === 'ok' ? '<span class="calst ok">正常' + (b.checkedAt ? '・' + esc(ago(b.checkedAt)) + '檢查' : '') + '</span>' : b.status === 'reauth' ? '<span class="calst bad">授權失效，請重新連結</span>' : '<span class="calst bad">' + esc(b.error || '讀取失敗') + '</span>';
+      const stTxt = b.status === 'ok' ? '<span class="calst ok">正常' + (b.checkedAt ? '・' + esc(ago(b.checkedAt)) + '檢查' : '') + '</span>' : '<span class="calst bad mb-err">' + esc(errText(b)) + '</span>';
       return '<div class="mb-set"><div class="mb-set-h"><input type="text" value="' + esc(b.label || '') + '" data-jmf="label" data-id="' + esc(b.id) + '" aria-label="' + esc(b.id) + ' 的顯示名稱" placeholder="顯示名稱" style="width:160px"><span class="mono">' + esc(b.id) + '</span>' + stTxt + '<span style="flex:1"></span>' +
-        (b.status === 'reauth' ? '<button class="btn sm primary" data-jm="connect">重新連結</button>' : '') + '<button class="btn sm ghost danger" data-jm="disc" data-id="' + esc(b.id) + '">取消連結</button></div>' +
+        (b.status && b.status !== 'ok' ? '<button class="btn sm" data-jm="connect">重新連結</button>' : '') + '<button class="btn sm ghost danger" data-jm="disc" data-id="' + esc(b.id) + '">取消連結</button></div>' +
         '<label class="inline"><input type="checkbox" data-jmf="private" data-id="' + esc(b.id) + '" ' + (priv ? 'checked' : '') + (priv && !mineP ? ' disabled' : '') + '> 個人信箱（只有' + (priv ? esc((S().members[b.owner] || {}).name || '擁有者') : '我') + '看得到）</label>' +
         (priv ? '' : '<div class="mb-allow"><span class="hint">還有誰看得到：</span>' + members.map((m) => '<label class="jx-ach' + (allow.includes(m.id) ? ' on' : '') + '"><input type="checkbox" data-jmf="allow" data-id="' + esc(b.id) + '" value="' + esc(m.id) + '" ' + (allow.includes(m.id) ? 'checked' : '') + '>' + esc(m.name) + '</label>').join('') + '</div>') + '</div>';
     }).join('');
