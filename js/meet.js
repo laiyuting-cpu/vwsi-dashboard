@@ -657,12 +657,13 @@
     const L = (G.ev && G.ev.list) || [];
     return L.filter((e) => { const r = J().evRange(e); if (r.allDay) return r.sd <= day && day < r.ed; return r.s.slice(0, 10) <= day && day <= r.e.slice(0, 10) && !(r.e.slice(0, 10) === day && r.e.slice(11, 16) === '00:00' && r.s.slice(0, 10) < day); });
   }
-  function dayEvents(day) {
+  function dayEvents(day) { return dayEventItems(day).map((x) => x.h).join(''); }
+  function dayEventItems(day) {
     return evOn(day).map((e) => {
       const l = J().evLabel(e, day);
       const declined = e.rs === 'declined', tent = e.rs === 'needsAction' || e.rs === 'tentative';
       return '<div class="td calev jx-ev' + (declined ? ' declined' : '') + '" data-jx="gopen" data-cal="' + esc(e.cal) + '" data-id="' + esc(e.id) + '" title="點一下編輯" style="border-left-color:' + esc(e.color || 'var(--c-meet)') + '"><div style="min-width:0;flex:1"><div class="tt">' + (tent ? '❔ ' : '📅 ') + esc(l.title) + (e.meet ? ' <span title="有 Meet 連結">🎥</span>' : '') + '</div><div class="sub2">' + esc(l.tm) + (l.loc ? '・' + esc(l.loc) : '') + (e.attendees && e.attendees.length > 1 ? '・' + e.attendees.length + ' 人' : '') + '</div></div></div>';
-    }).join('');
+    }).map((h, i) => ({ e: evOn(day)[i], h }));
   }
   function weekToolbar() {
     const st = G.st;
@@ -897,7 +898,7 @@
 
   window.JX = {
     boot, view: viewMeet,
-    gcOn: () => !!(G.st && G.st.connected), loadWeek, dayEvents, weekToolbar, gStatus,
+    gcOn: () => !!(G.st && G.st.connected), loadWeek, dayEvents, dayEventItems, weekToolbar, gStatus,
     settingsPanel: () => '<div class="panel-b pad"><p class="sub" style="margin:0 0 8px">用自己的 Google 帳號授權後，可以在工作台新增、修改活動，邀請與會者。</p>' + (G.st && G.st.connected ? '<span class="calst ok">已連結 ' + esc(G.st.email || '') + '</span> ' : '') + '<button class="btn sm" data-jx="gset">' + (G.st && G.st.connected ? '管理' : '連結 Google 日曆') + '</button></div>',
     _M: M, _G: G,
   };

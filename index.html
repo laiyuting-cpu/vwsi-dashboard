@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-13d">
+<meta name="app-ver" content="2026-11-13e">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -1314,8 +1314,14 @@ function viewMine(){
     const span=isNo||isWeekend(day)?[]:projT.filter(t=>isOpen(t)&&t.start&&t.start<=day&&day<t.due);
     const ghost=isNo||day<=S.date0?[]:projT.filter(t=>isOpen(t)&&recOf(t)&&t.due<day&&occursOn(recOf(t),t.recBase||t.due,day));
     let c='<div class="col'+(day===S.date0?' today':'')+(isNo?' nodate':'')+'" data-day="'+day+'"><div class="dh">'+(isNo?'<span class="w">'+label+'</span><span style="font-weight:700">'+(list.filter(x=>!x.done).length+undT.length)+' 項</span>':'<span class="w">'+label+'</span><span class="n">'+Number(day.slice(8))+'</span>')+'</div><div class="items">';
-    if(!isNo){c+=companyOn(day).map(e=>{const l=evLabel(e,day);return '<div class="td coev"'+(e.id?' data-jx="gopen" data-cal="'+esc(e.cal)+'" data-id="'+esc(e.id)+'" style="cursor:pointer"':'')+' title="'+esc(((S.compCals||[]).find(x=>x.id===e.cal)||{}).name||'公司行事曆')+'" style="border-left-color:'+esc(calColor(e.cal))+'"><div style="min-width:0;flex:1"><div class="tt">🏢 '+esc(e.summary||'（無標題）')+'</div><div class="sub2">'+esc(l.tm)+(e.location?'・'+esc(e.location):'')+'</div></div></div>'}).join('');
-      c+=gOn?JX.dayEvents(day):memberEvents(who.id,day).map(e=>{const l=evLabel(e,day);return '<div class="td calev" title="'+(self?'我的':esc(who.name)+'的')+'行事曆"><div style="min-width:0;flex:1"><div class="tt">📅 '+esc(l.title)+'</div><div class="sub2">'+esc(l.tm)+(l.loc?'・'+esc(l.loc):'')+'</div></div></div>'}).join('')}
+    if(!isNo){
+      // 公司與個人日曆的活動混在一起，依時間排：整天的在最上面，其餘依開始時間（同一個活動在兩個日曆只顯示一次）
+      const evKey=e=>{const r=evRange(e);if(r.allDay)return 'A';const st=r.s.slice(0,10)<day?'00:00':r.s.slice(11,16);const en=r.e.slice(0,10)>day?'24:00':r.e.slice(11,16);return 'B'+st+en};
+      const items=[];
+      companyOn(day).forEach(e=>{const l=evLabel(e,day);items.push({k:evKey(e),t:(e.summary||'').trim(),h:'<div class="td coev"'+(e.id?' data-jx="gopen" data-cal="'+esc(e.cal)+'" data-id="'+esc(e.id)+'" style="cursor:pointer"':'')+' title="'+esc(((S.compCals||[]).find(x=>x.id===e.cal)||{}).name||'公司行事曆')+'" style="border-left-color:'+esc(calColor(e.cal))+'"><div style="min-width:0;flex:1"><div class="tt">🏢 '+esc(e.summary||'（無標題）')+'</div><div class="sub2">'+esc(l.tm)+(e.location?'・'+esc(e.location):'')+'</div></div></div>'})});
+      (gOn?JX.dayEventItems(day):memberEvents(who.id,day).map(e=>{const l=evLabel(e,day);return {e,h:'<div class="td calev" title="'+(self?'我的':esc(who.name)+'的')+'行事曆"><div style="min-width:0;flex:1"><div class="tt">📅 '+esc(l.title)+'</div><div class="sub2">'+esc(l.tm)+(l.loc?'・'+esc(l.loc):'')+'</div></div></div>'}})).forEach(x=>items.push({k:evKey(x.e),t:(x.e.summary||'').trim(),h:x.h}));
+      const seen=new Set();
+      c+=items.filter(x=>{const id=x.k+'|'+x.t;if(x.t&&seen.has(id))return false;seen.add(id);return true}).sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:0).map(x=>x.h).join('')}
     c+=span.map(t=>'<div class="td span" data-act="openTask" data-id="'+esc(t.id)+'"><div style="min-width:0;flex:1"><div class="tt">'+esc(t.title)+'</div><div class="sub2">進行中・到 '+fmtD(t.due).split(' ')[0]+'</div></div></div>').join('');
     c+=ghost.map(t=>'<div class="td ghost" data-act="openTask" data-id="'+esc(t.id)+'" title="完成這一次後會自動建立"><div style="min-width:0;flex:1"><div class="tt">🔁 '+esc(t.title)+'</div><div class="sub2">預定・'+esc(recLabel(recOf(t),t.recBase||t.due))+'</div></div></div>').join('');
     if(day===S.date0)c+=lateT.map(t=>projCard(t,'逾期・原訂 '+fmtD(t.due).split(' ')[0],' over')).join('');
