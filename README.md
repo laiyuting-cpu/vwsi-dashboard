@@ -20,6 +20,7 @@
 | `supabase/schema.sql` | 資料表、權限規則、頭貼儲存空間。可重複執行 |
 | `supabase/meetings.sql` | 會議記錄、逐字稿分段、音檔空間、個人 Google 日曆授權（schema.sql 之後執行） |
 | `js/meet.js` | 會議錄音、逐字稿與重點；在週曆編輯自己的 Google 日曆 |
+| `js/mail.js`、`supabase/mail.sql`、`supabase/functions/mail` | 公用信箱未讀提醒（✉️、電腦通知、Slack 私訊）；設定頁連結信箱與權限 |
 | `fonts/` | 源泉圓體（SIL Open Font License）子集 |
 
 ## 權限

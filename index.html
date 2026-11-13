@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-13e">
+<meta name="app-ver" content="2026-11-13f">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -604,6 +604,40 @@ a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;ov
 .login .gbtn:hover{border-color:var(--ink-3)}
 .login .gbtn svg{width:20px;height:20px}
 .gated nav.tabs,.gated .bnav{display:none}
+
+/* ---------- 公用信箱（js/mail.js） ---------- */
+#mailbtn{flex:none}
+.mb-btn{position:relative;border:0;background:transparent;font-size:18px;line-height:1;padding:7px 9px;border-radius:8px;cursor:pointer}
+.mb-btn:hover,.mb-btn[aria-expanded="true"]{background:var(--surface-2)}
+.mb-badge{position:absolute;top:1px;right:0;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;font-weight:700;line-height:17px;text-align:center}
+.mb-panel{position:fixed;z-index:60;width:min(420px,calc(100vw - 16px));max-height:min(78vh,720px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.18)}
+.mb-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.mb-head a.btn{text-decoration:none;color:inherit}
+.mb-note{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--blue-soft);font-size:13px}
+.mb-list{overflow-y:auto;flex:1}
+.mb-box{border-bottom:1px solid var(--surface-2)}
+.mb-box.muted{opacity:.6}
+.mb-bh{display:flex;align-items:center;gap:8px;padding:10px 14px 6px}
+.mb-bh a{display:flex;flex-direction:column;min-width:0;flex:1;color:inherit;text-decoration:none}
+.mb-bh a .hint{font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.mb-n{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.mb-warn{font-size:11px;color:var(--red);font-weight:700;white-space:nowrap}
+.mb-mute{border:0;background:transparent;font-size:15px;padding:4px 6px;border-radius:6px;cursor:pointer}
+.mb-mute:hover{background:var(--surface-2)}
+.mb-msg{display:block;padding:7px 14px 7px 22px;color:inherit;text-decoration:none}
+.mb-msg:hover,.mb-msg:focus-visible{background:var(--surface-2)}
+.mb-l1{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.mb-l1 b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mb-l1 .hint{white-space:nowrap;font-size:11px}
+.mb-sub{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mb-snip{font-size:12px;color:var(--ink-3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.45}
+.mb-none{padding:2px 14px 10px 22px;font-size:12px;color:var(--ink-3)}
+.mb-more{display:block;padding:4px 14px 10px 22px;font-size:12px;color:var(--blue)}
+.mb-foot{padding:8px 14px;border-top:1px solid var(--line);font-size:11px}
+.mb-set{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;flex-direction:column;gap:8px}
+.mb-set-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.mb-allow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+@media (max-width:760px){.mb-panel{left:8px!important;right:8px!important;top:calc(60px + env(safe-area-inset-top,0px))!important;width:auto}}
 /* ---------- 會議記錄、Google 日曆編輯（js/meet.js） ---------- */
 .add2{display:flex;gap:4px}.add2 .add{flex:1}
 .wk.v .add2{align-self:start}
@@ -721,6 +755,7 @@ body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
       <a href="#settings" data-view="settings">設定</a>
       <button type="button" class="tmore" id="tmore" hidden aria-haspopup="true" aria-expanded="false">更多 ▾</button>
     </nav>
+    <div id="mailbtn"></div>
     <div class="who" id="who"></div>
   </div>
 </header>
@@ -750,6 +785,7 @@ body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/meet.js"></script>
+<script src="js/mail.js"></script>
 <script>
 (() => {
 'use strict';
@@ -1566,6 +1602,7 @@ function viewSettings(){
   const rows=ms.map(m=>{const self=my&&my.id===m.id;const canPic=S.assets&&(adm||self);return '<tr><td>'+(canPic?'<button class="btn ghost sm" data-act="pickAvatar" data-id="'+esc(m.id)+'" title="更換頭貼" style="padding:0">'+avatar(m)+'</button>':avatar(m))+'</td><td><input type="text" aria-label="姓名" data-mfield="name" data-id="'+esc(m.id)+'" value="'+esc(m.name)+'" '+dis+'></td><td><input type="text" aria-label="職稱" data-mfield="role" data-id="'+esc(m.id)+'" value="'+esc(m.role||'')+'" '+dis+'></td><td><select aria-label="部門" data-mfield="dept" data-id="'+esc(m.id)+'" '+dis+'>'+ds.map(d=>'<option value="'+esc(d.id)+'" '+(d.id===m.dept?'selected':'')+'>'+esc(d.name)+'</option>').join('')+'</select></td><td><select aria-label="身分" data-mfield="kind" data-id="'+esc(m.id)+'" '+dis+'>'+KINDS.map(k=>'<option '+(k===m.kind?'selected':'')+'>'+k+'</option>').join('')+'</select></td><td><span class="perm '+roleOf(m)+'">'+ROLE_LABEL[roleOf(m)]+'</span></td><td><label class="inline"><input type="checkbox" data-mfield="active" data-id="'+esc(m.id)+'" '+(m.active!==false?'checked':'')+' '+dis+'> 在職</label></td><td>'+(adm?'<input type="text" inputmode="email" autocomplete="off" aria-label="登入 Email" data-mfield="email" data-id="'+esc(m.id)+'" value="'+esc(m.email||'')+'" placeholder="name@vwsicamp.com" style="min-width:190px">':'<span class="hint">'+esc(m.email||'—')+'</span>')+'</td><td>'+(m.uid?(m.uid===S.uid?'<span class="pill s-done">我</span>':'<span class="pill s-doing">已登入過</span>')+(adm&&m.uid!==S.uid?' <button class="btn ghost sm" data-act="unclaim" data-id="'+esc(m.id)+'" title="換 Google 帳號時使用">解除</button>':''):'<span class="hint">還沒登入</span>')+' '+calStatusChip(m.id)+'</td></tr>'}).join('');
   if(my){loadMemberCals(S.date0);const st=calStatus(my.id);
     if(isAdmin()){if(!S.compCals&&!S.calTried){S.calTried=true;loadCompany(true)}const L=S.compCals||[];h+=panel('公司日曆（管理員）',L.length+' 個','<div class="panel-b pad" style="display:flex;flex-direction:column;gap:10px">'+L.map((c,i)=>'<div style="display:flex;align-items:center;gap:8px"><i style="width:12px;height:12px;border-radius:3px;background:'+esc(c.color)+';flex:none"></i><b style="flex:1;min-width:0;overflow-wrap:anywhere">'+esc(c.name)+'</b>'+(i===0?'<span class="sub">主日曆</span>':(c.ok===false?'<span class="calst no">讀不到</span>':'')+'<button class="btn ghost sm" data-act="calRemove" data-id="'+esc(c.id)+'">移除</button>')+'</div>').join('')+'<div style="display:flex;gap:6px"><input type="text" id="calAddId" placeholder="貼上日曆 ID，例如 xxxx@group.calendar.google.com" aria-label="日曆 ID"><button class="btn primary" data-act="calAdd" style="white-space:nowrap;flex:none">加入</button></div><p class="hint" style="margin:0">用 vwsi.campmanagement 登入 Google 日曆 → 左側該日曆旁「⋮」→「設定和共用」：①「與特定使用者共用」加入 '+esc(BOT_SA)+'（查看所有活動詳細資料）；② 往下找到「整合日曆」的「日曆 ID」，複製貼到這裡。大家可以在「我的任務」上方自己選要顯示哪些日曆。</p></div>',{wide:true})}
+    if(window.JM&&JM._ST.st&&JM._ST.st.admin)h+=panel('公用信箱','',JM.settingsPanel());
     if(window.JX)h+=panel('在工作台編輯我的 Google 日曆','',JX.settingsPanel());
     h+=panel('我的行事曆',calStatusChip(my.id)+(my.calPrivate?' <span class="calst no">🔒 只有我看得到標題</span>':''),'<div class="panel-b pad" style="display:flex;flex-direction:column;gap:12px"><p class="sub" style="margin:0">把你的 Google 日曆分享給工作台的服務帳號，Daily Mission 和「團隊」就會顯示你的行程，會議時數也會算進每週工時。<b>要分享完整內容還是只顯示忙碌，由你決定。</b></p>'+
       '<ol class="steps"><li>打開 <a href="https://calendar.google.com/calendar/u/0/r/settings" target="_blank" rel="noopener" style="color:var(--blue)">Google 日曆設定</a>，左邊「<b>我的日曆設定</b>」點你自己的日曆</li><li>往下找到「<b>與特定使用者或群組共用</b>」→「<b>+ 新增使用者和群組</b>」</li><li>貼上 <code class="mono" style="user-select:all">vwsi-bot@vwsi-dashboard.iam.gserviceaccount.com</code> <button class="btn ghost sm" data-act="copyBot">複製</button></li><li>權限選「<b>查看所有活動詳細資料</b>」（大家看得到行程標題）或「<b>只能查看可用時段（隱藏詳細資訊）</b>」（只顯示忙碌）→ 傳送</li><li>按下面的「檢查」。日曆帳號和登入工作台的 Email 不同時，才需要另外填</li></ol>'+
@@ -2115,6 +2152,7 @@ async function boot(){
   ['members','depts','projects','tasks','templates','goals','manuals','todos'].forEach(k=>sub(k,k));
   subDay();
   if(window.JX)JX.boot();
+  if(window.JM)JM.boot();
   setTimeout(()=>{if(!ready()){Object.keys(S.loaded).forEach(k=>S.loaded[k]=true);render()}},8000);
   setInterval(()=>{const t=today();if(t!==S.date0){const follow=S.date===S.date0;S.date0=t;if(follow)S.date=t;subDay();render()}},60000);
 }

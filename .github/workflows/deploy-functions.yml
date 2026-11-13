@@ -36,3 +36,4 @@ jobs:
           supabase functions deploy attendance --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
           supabase functions deploy meeting --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
           supabase functions deploy gcal --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
+          supabase functions deploy mail --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
