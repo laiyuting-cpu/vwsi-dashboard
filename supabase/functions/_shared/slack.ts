@@ -29,4 +29,5 @@ export async function slackGet(method: string, params: Record<string, string>) {
 }
 
 export const GENERAL = 'C01N8DC3544';
-export const SITE = 'https://laiyuting-cpu.github.io/vwsi-dashboard/';
+// 工作台網址（Slack 訊息裡的連結）。2026-11 起搬到 Cloudflare Pages。
+export const SITE = Deno.env.get('SITE_URL') || 'https://work.vwsicamp.com/';
