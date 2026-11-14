@@ -91,8 +91,10 @@ const LINES_SCHEMA = {
       type: 'ARRAY',
       items: { type: 'OBJECT', properties: { t: { type: 'STRING' }, sp: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['t', 'sp', 'text'] },
     },
+    heard: { type: 'STRING', enum: ['clear', 'faint', 'none'] },
   },
-  required: ['lines'],
+  required: ['heard', 'lines'],
+  propertyOrdering: ['heard', 'lines'],
 };
 // 會議類型：每種類型整理成不同段落。todos＝下一步行動。
 type TypeDef = { label: string; intro: string; sections: [string, string][]; todo: string };
@@ -212,8 +214,10 @@ async function doSeg(id: string, m: MData, n: number) {
   const team = (await memberNames()).join('、');
 
   const prompt = [
-    '你是專業的會議逐字稿紀錄員。請把這段會議錄音完整轉成逐字稿。',
+    '你是專業的會議逐字稿紀錄員。請把這段錄音裡「實際聽得到」的說話內容轉成逐字稿。',
     range,
+    '最重要的規則：只寫你真的從錄音裡聽到的話。聽不到、聽不清楚的地方絕對不要猜、不要補寫、不要編造。下面提供的公司名稱、夥伴名字、專有名詞只是用來校正拼寫，不是內容來源，錄音裡沒說就不要出現。',
+    '- heard：整段錄音人聲清楚就填 clear；人聲很小、很遠、雜音很多只聽得到片段就填 faint（只寫聽得清楚的句子，聽不清楚的地方寫「（聽不清楚）」）；完全聽不到人聲就填 none，lines 回傳空陣列。',
     '規則：',
     '- 使用繁體中文（台灣用語）。英文單字、品牌、專有名詞保留原文。',
     '- 忠實記錄說話內容，可以省略「嗯、呃、那個」等沒有意義的語助詞，但不要摘要或改寫。',
@@ -223,15 +227,16 @@ async function doSeg(id: string, m: MData, n: number) {
     `- 職掘公司夥伴（對話中出現這些名字時請照這個寫法）：${team}`,
     people ? `- 這場會議的與會者：${people}` : '',
     m.type === 'interview' ? '- 這是一場面試，通常是面試官提問、應徵者回答；不知道應徵者姓名時用「應徵者」當標籤。' : '',
-    m.type === 'lecture' ? '- 這是一堂課程或講座，大部分時間是講者在說話；不知道講者姓名時用「講者」當標籤，台下提問的人用「學員A」「學員B」。講者的內容請完整記錄，不要省略。' : '',
+    m.type === 'lecture' ? '- 這是一堂課程或講座，大部分時間是講者在說話；不知道講者姓名時用「講者」當標籤，台下提問的人用「學員A」「學員B」。' : '',
     m.type === 'partner' ? '- 這是和公司外部（客戶、合作單位）的會議；外部人士不知道姓名時用「對方A」「對方B」當標籤。' : '',
     `- 可能出現的專有名詞：${[BASE_VOCAB, m.vocab].filter(Boolean).join('、')}`,
     '- t 是這一行開始說話的時間，格式 M:SS 或 H:MM:SS。',
     '- 沒有人說話的部分不要輸出；整段都沒有語音時 lines 回傳空陣列。',
-    tail ? `前一段最後幾句（只供判斷說話者，不要重複輸出）：\n${tail}` : '',
+    tail ? `前一段最後幾句（只供判斷說話者標籤，不要重複輸出，也不要延續它的內容；這一段要完全根據錄音）：\n${tail}` : '',
   ].filter(Boolean).join('\n');
 
   const out = await gemini([audio, { text: prompt }], LINES_SCHEMA);
+  if (out?.heard === 'none') throw fail('empty_audio', 'no speech heard');
   let lines: Line[] = ((out?.lines ?? []) as { t: string; sp: string; text: string }[])
     .filter((l) => l && String(l.text || '').trim())
     .map((l) => ({ t: parseT(l.t), sp: String(l.sp || '說話者').trim().slice(0, 30), text: String(l.text).trim() }));
@@ -242,7 +247,7 @@ async function doSeg(id: string, m: MData, n: number) {
     if (fileOff > 0 && lines.length && Math.max(...lines.map((l) => l.t)) < fileOff - 5) lines = lines.map((l) => ({ ...l, t: l.t + fileOff }));
     lines = lines.map((l) => ({ ...l, t: l.t + off }));
   }
-  return lines;
+  return { lines, faint: out?.heard === 'faint' };
 }
 
 async function doSummary(id: string, m: MData) {
@@ -316,8 +321,8 @@ Deno.serve(async (req) => {
       const n = Math.max(0, Math.floor(Number(q.n) || 0));
       await db.from('meeting_segs').upsert({ meeting_id: id, n, status: 'working', error: null, updated_at: new Date().toISOString() });
       try {
-        const lines = await doSeg(id, m, n);
-        await db.from('meeting_segs').upsert({ meeting_id: id, n, status: 'done', lines, error: null, updated_at: new Date().toISOString() });
+        const { lines, faint } = await doSeg(id, m, n);
+        await db.from('meeting_segs').upsert({ meeting_id: id, n, status: 'done', lines, error: faint ? 'faint' : null, updated_at: new Date().toISOString() });
         return json({ ok: true, n, count: lines.length });
       } catch (e) {
         const code = (e as { code?: string }).code || 'error';
