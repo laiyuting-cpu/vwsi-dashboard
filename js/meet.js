@@ -130,7 +130,7 @@
       await loadSegs(id);
       for (const n of expected(m)) {
         const s = (M.segs[id] || {})[n];
-        if (s && (s.status === 'done' || s.status === 'empty')) continue;
+        if (s && (s.status === 'done' || s.status === 'empty') && !(opts && opts.redo)) continue;
         if (s && s.status === 'working' && !(opts && opts.force) && Date.now() - new Date(s.updated_at || 0) < 4 * 60e3) continue;
         const ok = await transcribe(id, n);
         if (!ok) { await loadSegs(id); return; }
@@ -503,6 +503,7 @@
     const doneN = exp.filter((n) => ['done', 'empty'].includes((segs[n] || {}).status)).length;
     const empties = exp.filter((n) => (segs[n] || {}).status === 'empty');
     const errs = exp.filter((n) => (segs[n] || {}).status === 'error');
+    const faint = exp.filter((n) => (segs[n] || {}).status === 'done' && (segs[n] || {}).error === 'faint');
     const live = M.rec && M.rec.id === m.id;
     const busy = !!M.busy[m.id] || (M.done && M.done.id === m.id);
     let h = '<div class="panel jx-dpanel"><div class="jx-dh">';
@@ -520,14 +521,15 @@
     h += '</div>';
     // 進度
     if (live) h += '<div class="jx-prog"><span class="jx-dot"></span> 錄音中，每 5 分鐘會先轉一段逐字稿（已完成 ' + doneN + ' 段）</div>';
-    else if (m.status === 'recording' && !live && !stale(m)) h += '<div class="jx-prog"><span class="jx-dot"></span> ' + esc((S().members[m.owner] || {}).name || '') + ' 正在另一個裝置錄音（已上傳 ' + (m.parts || []).length + ' 段）</div>';
-    else if (m.status === 'recording' && !live) h += '<div class="jx-prog warn">這場錄音沒有正常結束（可能關掉了頁面）。已上傳 ' + (m.parts || []).length + ' 段。' + (own ? ' <button class="btn sm primary" data-jx="recMore" data-id="' + esc(m.id) + '">⏺ 接著錄</button> <button class="btn sm" data-jx="finish" data-id="' + esc(m.id) + '">用已上傳的部分整理</button>' : '') + '</div>';
+    else if (m.status === 'recording' && !live && !stale(m)) h += '<div class="jx-prog"><span class="jx-dot"></span> ' + esc((S().members[m.owner] || {}).name || '') + ' 正在另一個裝置錄音（已上傳 ' + (m.parts || []).length + ' 段）' + (own ? '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><span class="hint">其實已經停了？</span><button class="btn sm primary" data-jx="recMore" data-id="' + esc(m.id) + '">⏺ 接著錄</button><label class="btn sm">⬆ 加入音檔<input type="file" id="jx-fileAdd" data-id="' + esc(m.id) + '" accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac" multiple hidden></label></span>' : '') + '</div>';
+    else if (m.status === 'recording' && !live) h += '<div class="jx-prog warn">這場錄音沒有正常結束（可能關掉了頁面）。已上傳 ' + (m.parts || []).length + ' 段。' + (own ? ' <button class="btn sm primary" data-jx="recMore" data-id="' + esc(m.id) + '">⏺ 接著錄</button> <label class="btn sm">⬆ 加入音檔<input type="file" id="jx-fileAdd" data-id="' + esc(m.id) + '" accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac" multiple hidden></label> <button class="btn sm" data-jx="finish" data-id="' + esc(m.id) + '">用已上傳的部分整理</button>' : '') + '</div>';
     else if (m.status !== 'done' || busy) {
       const pct = exp.length ? Math.round(doneN / exp.length * 100) : 0;
       h += '<div class="jx-prog"><div style="flex:1"><div>' + (m.status === 'uploading' ? '上傳音檔中…' : m.status === 'summarizing' || (doneN === exp.length && exp.length) ? '整理重點中…' : '轉逐字稿中… ' + doneN + ' / ' + exp.length + ' 段') + '</div><div class="bar"><span style="width:' + pct + '%"></span></div></div>' +
         (!busy && m.status !== 'uploading' ? '<button class="btn sm" data-jx="resume" data-id="' + esc(m.id) + '">繼續整理</button>' : '<span class="jx-spin"></span>') + '</div>';
     }
     if (empties.length) h += '<div class="jx-prog warn">第 ' + rangeTxt(empties.map((n) => n + 1)) + ' 段（每段 5 分鐘）沒有錄到聲音，這部分沒有逐字稿。</div>';
+    if (faint.length) h += '<div class="jx-prog warn">第 ' + rangeTxt(faint.map((n) => n + 1)) + ' 段聲音很小或很遠，逐字稿可能不完整。錄音時請把手機或電腦放近說話的人。</div>';
     if (errs.length && !busy) h += '<div class="jx-prog warn">第 ' + errs.map((n) => n + 1).join('、') + ' 段轉錄失敗：' + esc(String((segs[errs[0]] || {}).error || '').slice(0, 120)) + ' <button class="btn sm" data-jx="resume" data-id="' + esc(m.id) + '" data-force="1">重試</button></div>';
     // 分頁
     const sm = m.summary || null; const todos = (sm && sm.todos) || [];
@@ -597,7 +599,7 @@
         '</div><datalist id="jx-names">' + J().activeMembers().map((x) => '<option value="' + esc(x.name) + '">').join('') + '</datalist><p class="hint" style="margin:6px 0 0">改完名字後，到「重點」按「重新整理重點」就會用新名字。</p></details>';
     }
     const pending = exp.length - exp.filter((n) => ['done', 'empty'].includes((segs[n] || {}).status)).length;
-    h += '<div class="jx-tools"><button class="btn sm" data-jx="dlTx" data-id="' + esc(m.id) + '">⬇ 下載逐字稿</button><button class="btn sm" data-jx="copyTx" data-id="' + esc(m.id) + '">📋 複製</button>' + (m.purged ? '<span class="hint">錄音檔已超過 30 天自動刪除，逐字稿保留</span>' : '<span class="hint">點時間可以播放那一段錄音</span>') + '</div>';
+    h += '<div class="jx-tools"><button class="btn sm" data-jx="dlTx" data-id="' + esc(m.id) + '">⬇ 下載逐字稿</button><button class="btn sm" data-jx="copyTx" data-id="' + esc(m.id) + '">📋 複製</button>' + (own && !m.purged && m.status !== 'recording' && !M.busy[m.id] ? '<button class="btn sm ghost" data-jx="retx" data-id="' + esc(m.id) + '" title="逐字稿怪怪的時候，可以用原始錄音重新轉一次">↻ 重新轉錄</button>' : '') + (m.purged ? '<span class="hint">錄音檔已超過 30 天自動刪除，逐字稿保留</span>' : '<span class="hint">點時間可以播放那一段錄音</span>') + '</div>';
     h += '<audio id="jxAudio" controls preload="none" style="width:100%;' + (M.playing === m.id ? '' : 'display:none') + '"></audio>';
     const col = {}; labels.forEach((l, i) => { col[l] = ['var(--blue)', 'var(--amber)', 'var(--green)', 'var(--violet)', 'var(--red)', '#0f8b8d', '#6b7a1a', '#3d5a99'][i % 8]; });
     let last = '';
@@ -885,6 +887,7 @@
       case 'tab': M.tab = a.dataset.v; J().render(); break;
       case 'resume': process(id, { force: !!a.dataset.force }); J().render(); break;
       case 'resum': process(id, { resum: true }); toast('重新整理重點中…'); break;
+      case 'retx': if (!confirm('用原始錄音重新轉逐字稿，並重新整理重點？')) break; process(id, { redo: true, resum: true, notify: true }); toast('重新轉錄中，完成後會通知你'); J().render(); break;
       case 'finish': await S().db.doc('meetings/' + id).update({ status: 'processing' }); M.list[id].status = 'processing'; process(id, { notify: true }); break;
       case 'unshare': { const m = M.list[id]; const sh = (m.shared || []).filter((x) => x !== a.dataset.m); await J().W(S().db.doc('meetings/' + id).update({ shared: sh })); break; }
       case 'askDel': M.confirmDel = id; J().render(); break;
