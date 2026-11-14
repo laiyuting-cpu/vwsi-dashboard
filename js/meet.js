@@ -166,7 +166,12 @@
 
   const micId = () => { try { return localStorage.getItem('jj-mic') || ''; } catch (_) { return ''; } };
   // 實體會議／上課常常離說話的人比較遠：關掉降噪與回音消除（會把遠處人聲當雜音濾掉），保留自動增益
-const micCons = () => ({ echoCancellation: false, noiseSuppression: false, autoGainControl: true, ...(micId() ? { deviceId: { ideal: micId() } } : {}) });
+const micCons = (loose) => ({ echoCancellation: false, noiseSuppression: false, autoGainControl: true, ...(micId() ? { deviceId: loose ? { ideal: micId() } : { exact: micId() } } : {}) });
+  // 指定的麥克風拔掉了（OverconstrainedError）就退回預設
+  async function getMic() {
+    try { return await navigator.mediaDevices.getUserMedia({ audio: micCons() }); }
+    catch (e) { if (micId() && e && /Overconstrained|NotFound/.test(e.name)) { try { localStorage.removeItem('jj-mic'); } catch (_) {} return navigator.mediaDevices.getUserMedia({ audio: micCons(true) }); } throw e; }
+  }
   // 開始前的麥克風測試：選輸入裝置、看音量條
   const T = { st: null, ctx: null, raf: 0 };
   function stopTest() { cancelAnimationFrame(T.raf); if (T.st) T.st.getTracks().forEach((t) => t.stop()); try { T.ctx && T.ctx.close(); } catch (_) {} T.st = T.ctx = null; }
@@ -174,9 +179,12 @@ const micCons = () => ({ echoCancellation: false, noiseSuppression: false, autoG
     stopTest();
     const box = document.getElementById('jx-mict'); if (!box) return;
     try {
-      T.st = await navigator.mediaDevices.getUserMedia({ audio: micCons() });
+      T.st = await getMic();
       const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
-      const cur = (T.st.getAudioTracks()[0].getSettings() || {}).deviceId || micId();
+      const ids = devs.map((d) => d.deviceId);
+      let cur = (T.st.getAudioTracks()[0].getSettings() || {}).deviceId || micId();
+      if (micId() && ids.includes(micId())) cur = micId();
+      if (!ids.includes(cur)) cur = ids.includes('default') ? 'default' : ids[0];
       const sel = document.getElementById('jx-micsel');
       if (sel) sel.innerHTML = devs.map((d, i) => '<option value="' + esc(d.deviceId) + '" ' + (d.deviceId === cur ? 'selected' : '') + '>' + esc(d.label || '麥克風 ' + (i + 1)) + '</option>').join('');
       const AC = window.AudioContext || window.webkitAudioContext; T.ctx = new AC(); try { await T.ctx.resume(); } catch (_) {}
@@ -207,7 +215,7 @@ const micCons = () => ({ echoCancellation: false, noiseSuppression: false, autoG
         disp = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { suppressLocalAudioPlayback: false }, systemAudio: 'include', selfBrowserSurface: 'exclude' });
         if (!disp.getAudioTracks().length) { disp.getTracks().forEach((t) => t.stop()); toast('沒有分享到聲音：請選「Chrome 分頁」並勾選「同時分享分頁音訊」'); return; }
       }
-      mic = await navigator.mediaDevices.getUserMedia({ audio: micCons() });
+      mic = await getMic();
     } catch (e) {
       if (disp) disp.getTracks().forEach((t) => t.stop());
       toast(e && e.name === 'NotAllowedError' ? '沒有取得麥克風權限：請在瀏覽器網址列旁允許使用麥克風' : '無法開始錄音：' + ((e && e.message) || ''));
@@ -284,7 +292,7 @@ const micCons = () => ({ echoCancellation: false, noiseSuppression: false, autoG
     try {
       try { await R.ctx.resume(); } catch (_) {}
       {
-        const mic = await navigator.mediaDevices.getUserMedia({ audio: micCons() });
+        const mic = await getMic();
         const old = R.mic; R.mic = mic;
         try { const src = R.ctx.createMediaStreamSource(mic); src.connect(R.an); if (R.disp) src.connect(R.dest); } catch (_) {}
         if (!R.disp) R.stream = new MediaStream(mic.getAudioTracks());
