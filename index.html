@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-14a">
+<meta name="app-ver" content="2026-11-14b">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -658,6 +658,17 @@ a.tlink{color:var(--blue);text-decoration:underline;text-underline-offset:2px;ov
 @keyframes jxp{50%{opacity:.35}}
 .jx-stop{color:var(--red);font-weight:700}
 .jx-bar .btn{white-space:nowrap;flex:none}
+.jx-notes{position:fixed;right:20px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:44;width:min(400px,calc(100% - 24px));height:min(46vh,420px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 32px rgba(0,0,0,.2);overflow:hidden}
+.jx-nh{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 14px;border-bottom:1px solid var(--line)}
+.jx-nh .hint{flex:1;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jx-notes textarea{flex:1;border:0;border-radius:0;resize:none;padding:12px 14px;font:inherit;font-size:15px;line-height:1.6;background:transparent;color:var(--ink);outline:none}
+.jx-more{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.jx-more .hint{font-size:12px}
+.jx-ndet{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.jx-ndet summary{cursor:pointer;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.jx-ndet h3{margin:0 0 6px}
+.jx-nta{width:100%;box-sizing:border-box;min-height:110px;margin-top:8px;font:inherit;line-height:1.6;resize:vertical}
+.jx-npre{white-space:pre-wrap;line-height:1.6}
 body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 @media (max-width:760px){body.jx-on .toast{bottom:calc(128px + env(safe-area-inset-bottom,0px))}}
 .jx-dh .only-mob{align-self:flex-start;margin-left:-8px}
@@ -728,6 +739,8 @@ body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 @media (max-width:760px){
   .jx-fab{bottom:calc(74px + env(safe-area-inset-bottom,0px));right:16px;width:50px;height:50px}
   .jx-bar{bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+  .jx-notes{left:12px;right:12px;width:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px));height:42vh}
+  .jx-bar .jx-bl{display:none}
   .jx-bar .jx-tt{display:none}
   .jx-bar{padding-left:12px}
   .jx-split{grid-template-columns:1fr}

@@ -17,12 +17,14 @@ const MODELS = () => (Deno.env.get('GEMINI_MODEL') || 'gemini-flash-latest,gemin
 const fail = (code: string, detail?: string) => Object.assign(new Error(detail || code), { code });
 
 type Line = { t: number; sp: string; text: string };
-type Part = { n: number; path: string; mime: string; dur?: number; off?: number };
+// span>1：上傳的長音檔，佔用 n～n+span-1 段，每段 WIN 秒。up：上傳的音檔（不是現場錄音切段）。
+type Part = { n: number; path: string; mime: string; dur?: number; off?: number; span?: number; up?: boolean };
 type MData = {
   owner: string; title?: string; autoTitle?: boolean; date?: string; status?: string;
   file?: boolean; dur?: number; parts?: Part[]; gfile?: { uri: string; mime: string; exp: number; path: string };
   people?: string[]; vocab?: string; type?: string; speakers?: Record<string, string>; shared?: string[];
-  createdAt?: string; purged?: boolean;
+  createdAt?: string; purged?: boolean; notes?: string;
+  gfiles?: Record<string, { uri: string; mime: string; exp: number }>;
 };
 
 const mmss = (s: number) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + String(x).padStart(2, '0'); };
@@ -152,6 +154,7 @@ async function doSeg(id: string, m: MData, n: number) {
   let audio: Record<string, unknown>;
   let range = '';
   let off = 0;
+  let fileOff = -1; // 長音檔切段時，這段在音檔裡的開始秒數
   if (m.file) {
     const p = parts[0];
     if (!p) throw fail('audio_missing');
@@ -168,6 +171,26 @@ async function doSeg(id: string, m: MData, n: number) {
       range = `只轉錄音檔中 ${mmss(s)} 到 ${mmss(e)} 之間的內容（其他時間不要輸出）。t 以整個音檔開頭為 0:00。`;
       off = s;
     } else range = '轉錄整個音檔。t 以音檔開頭為 0:00。';
+  } else if (parts.some((x) => x.up && n >= x.n && n < x.n + (x.span || 1))) {
+    // 後來加進來的音檔（可能很長，切成數段）
+    const p = parts.find((x) => x.up && n >= x.n && n < x.n + (x.span || 1))!;
+    const k = n - p.n, span = p.span || 1;
+    let g = (m.gfiles ?? {})[p.path];
+    if (!g || g.exp < Date.now() + 15 * 60_000) {
+      const b = await download(p.path);
+      if (b.length < 1024) throw fail('empty_audio', `only ${b.length} bytes`);
+      const up = await gUpload(b, geminiMime(p.mime), id + '-' + p.n);
+      g = { ...up, exp: Date.now() + 46 * 3600_000 };
+      const { data: cur } = await db.from('meetings').select('data').eq('id', id).maybeSingle();
+      await db.rpc('doc_patch', { tbl: 'meetings', doc_id: id, patch: { gfiles: { ...((cur?.data as MData)?.gfiles ?? {}), [p.path]: g } } });
+    }
+    audio = { fileData: { fileUri: g.uri, mimeType: g.mime } };
+    if (span > 1) {
+      const s0 = k * WIN, e0 = Math.min(Number(p.dur) || (k + 1) * WIN, (k + 1) * WIN);
+      range = `只轉錄音檔中 ${mmss(s0)} 到 ${mmss(e0)} 之間的內容（其他時間不要輸出）。t 以整個音檔開頭為 0:00。`;
+      fileOff = s0;
+    } else range = '轉錄整個音檔。t 以音檔開頭為 0:00。';
+    off = Number(p.off) || 0;
   } else {
     const p = parts.find((x) => x.n === n);
     if (!p) throw fail('audio_missing');
@@ -215,7 +238,10 @@ async function doSeg(id: string, m: MData, n: number) {
   if (m.file) {
     // 模型偶爾會用「區間開頭」當 0:00，這時補上位移
     if (off > 0 && lines.length && Math.max(...lines.map((l) => l.t)) < off - 5) lines = lines.map((l) => ({ ...l, t: l.t + off }));
-  } else lines = lines.map((l) => ({ ...l, t: l.t + off }));
+  } else {
+    if (fileOff > 0 && lines.length && Math.max(...lines.map((l) => l.t)) < fileOff - 5) lines = lines.map((l) => ({ ...l, t: l.t + fileOff }));
+    lines = lines.map((l) => ({ ...l, t: l.t + off }));
+  }
   return lines;
 }
 
@@ -239,6 +265,7 @@ async function doSummary(id: string, m: MData) {
     ...def.sections.map(([h, d], i) => `- s${i}（${h}）：${d}。每點一句話；沒有就回傳空陣列。`),
     `- todos（下一步行動）：${def.todo}。text 用動詞開頭；owner 填負責人（公司夥伴請用名單裡斜線前的第一個名字，外部人士寫單位或稱呼，沒有明確負責人就空字串）；due 填 YYYY-MM-DD（有提到期限才填，「下週三」這類請換算成日期，沒有就空字串）。`,
     '不要編造逐字稿裡沒有的內容。',
+    m.notes && m.notes.trim() ? `錄音者當場記下的筆記（代表他認為重要的地方，整理時請優先納入；筆記和逐字稿衝突時以逐字稿為準）：\n${m.notes.trim().slice(0, 6000)}\n` : '',
     missing ? `注意：這場會議有 ${missing} 段（每段約 5 分鐘）沒有錄到聲音，逐字稿不完整，請只根據現有內容整理。` : '',
     '',
     '逐字稿：',
