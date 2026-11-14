@@ -165,7 +165,8 @@
   const extOf = (mime) => /mp4|m4a|aac/.test(mime) ? 'm4a' : /ogg/.test(mime) ? 'ogg' : /mpeg|mp3/.test(mime) ? 'mp3' : /wav/.test(mime) ? 'wav' : 'webm';
 
   const micId = () => { try { return localStorage.getItem('jj-mic') || ''; } catch (_) { return ''; } };
-  const micCons = () => ({ echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(micId() ? { deviceId: { ideal: micId() } } : {}) });
+  // 實體會議／上課常常離說話的人比較遠：關掉降噪與回音消除（會把遠處人聲當雜音濾掉），保留自動增益
+const micCons = () => ({ echoCancellation: false, noiseSuppression: false, autoGainControl: true, ...(micId() ? { deviceId: { ideal: micId() } } : {}) });
   // 開始前的麥克風測試：選輸入裝置、看音量條
   const T = { st: null, ctx: null, raf: 0 };
   function stopTest() { cancelAnimationFrame(T.raf); if (T.st) T.st.getTracks().forEach((t) => t.stop()); try { T.ctx && T.ctx.close(); } catch (_) {} T.st = T.ctx = null; }
@@ -185,8 +186,8 @@
         const bar = document.getElementById('jx-micbar'), tip = document.getElementById('jx-mictip');
         if (!bar) { stopTest(); return; }
         an.getByteTimeDomainData(a); let p = 0; for (const v of a) p = Math.max(p, Math.abs(v - 128));
-        bar.style.width = Math.min(100, Math.round(p / 128 * 200)) + '%';
-        if (p > 6) peakAt = Date.now();
+        bar.style.width = Math.min(100, Math.round(Math.sqrt(p / 128) * 160)) + '%';
+        if (p > 4) peakAt = Date.now();
         if (tip) tip.textContent = peakAt && Date.now() - peakAt < 1500 ? '✅ 有收到聲音' : '說說話試試看：綠色條要跟著跳動';
         T.raf = requestAnimationFrame(loop);
       };
@@ -312,7 +313,7 @@
     const lv = document.getElementById('jxRecL');
     if (R.an && !R.paused && !document.hidden && R.ctx && R.ctx.state === 'running') {
       const a = new Uint8Array(R.an.fftSize); R.an.getByteTimeDomainData(a); let p = 0; for (const v of a) p = Math.max(p, Math.abs(v - 128));
-      if (lv) lv.style.width = Math.min(100, Math.round(p / 128 * 180)) + '%';
+      if (lv) lv.style.width = Math.min(100, Math.round(Math.sqrt(p / 128) * 150)) + '%';
       if (R.mr) { R.mr._ticks++; if (p > 6) R.mr._act++; }
       // 連續 20 秒幾乎沒有聲音 → 提醒（麥克風被靜音、選錯輸入裝置、離說話的人太遠）
       if (p > 3) { R.quietAt = 0; if (R.quiet) { R.quiet = false; drawBar(); } }
