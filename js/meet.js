@@ -13,13 +13,15 @@
   const me = () => window.JJ.me();
 
   // 會議類型（後端 meeting 函式有對應的整理格式）
-  const TYPES = [['general', '一般會議', '重點、決議、待確認'], ['partner', '對外洽談', '對方需求、共識與條件'], ['interview', '面試', '背景、回答重點、待確認'], ['brainstorm', '腦力激盪', '點子、傾向方向'], ['oneonone', '1 對 1', '近況、需要的支援、共識']];
+  const TYPES = [['general', '一般會議', '重點、決議、待確認'], ['partner', '對外洽談', '對方需求、共識與條件'], ['interview', '面試', '背景、回答重點、待確認'], ['brainstorm', '腦力激盪', '點子、傾向方向'], ['oneonone', '1 對 1', '近況、需要的支援、共識'], ['lecture', '上課筆記', '大綱、重點觀念、案例、金句']];
+  const todoLabel = (m) => (m && m.type === 'lecture' ? '應用與作業' : '下一步行動');
   const typeLabel = (t) => (TYPES.find((x) => x[0] === t) || TYPES[0])[1];
   function guessType(o) {
     const t = String((o && o.title) || '');
     if (/面試|interview/i.test(t)) return 'interview';
     if (/1\s*(對|on|:)\s*1|一對一/i.test(t)) return 'oneonone';
     if (/腦力激盪|發想|brainstorm/i.test(t)) return 'brainstorm';
+    if (/上課|講座|演講|聽課|lecture/i.test(t)) return 'lecture';
     if (o && o.external) return 'partner';
     return 'general';
   }
@@ -467,7 +469,7 @@
     if (errs.length && !busy) h += '<div class="jx-prog warn">第 ' + errs.map((n) => n + 1).join('、') + ' 段轉錄失敗：' + esc(String((segs[errs[0]] || {}).error || '').slice(0, 120)) + ' <button class="btn sm" data-jx="resume" data-id="' + esc(m.id) + '" data-force="1">重試</button></div>';
     // 分頁
     const sm = m.summary || null; const todos = (sm && sm.todos) || [];
-    h += '<div class="tabs2" style="margin:0;padding:0 14px">' + [['sum', '重點'], ['todo', '下一步行動' + (todos.length ? ' ' + todos.length : '')], ['tx', '逐字稿']].map(([k, l]) => '<button data-jx="tab" data-v="' + k + '" aria-pressed="' + (M.tab === k) + '">' + l + '</button>').join('') + '</div><div class="jx-body">';
+    h += '<div class="tabs2" style="margin:0;padding:0 14px">' + [['sum', '重點'], ['todo', todoLabel(m) + (todos.length ? ' ' + todos.length : '')], ['tx', '逐字稿']].map(([k, l]) => '<button data-jx="tab" data-v="' + k + '" aria-pressed="' + (M.tab === k) + '">' + l + '</button>').join('') + '</div><div class="jx-body">';
     if (M.tab === 'tx') h += txView(m, segs, exp, own);
     else if (M.tab === 'todo') h += todoView(m, todos, own);
     else h += sumView(m, sm, own);
@@ -481,7 +483,7 @@
     let h = '';
     if (sm.type && sm.type !== (m.type || 'general')) h += '<div class="jx-note warn" style="margin-top:10px">這份重點是用「' + esc(typeLabel(sm.type)) + '」的格式整理的。' + (own ? '<button class="btn sm" data-jx="resum" data-id="' + esc(m.id) + '">改用「' + esc(typeLabel(m.type)) + '」重新整理</button>' : '') + '</div>';
     secs(sm).forEach((sec, i) => { if (sec.items.length || i === 0) h += '<h3>' + esc(sec.h) + '</h3>' + (sec.items.length ? ul(sec.items) : '<p class="hint">沒有。</p>'); });
-    if (sm.todos.length) h += '<h3>下一步行動</h3><ul class="jx-ul">' + sm.todos.map((t) => '<li>' + esc(t.text) + (t.owner ? '<span class="hint">・' + esc(t.owner) + '</span>' : '') + (t.due ? '<span class="hint">・' + esc(J().fmtD(t.due)) + '</span>' : '') + '</li>').join('') + '</ul>';
+    if (sm.todos.length) h += '<h3>' + todoLabel(m) + '</h3><ul class="jx-ul">' + sm.todos.map((t) => '<li>' + esc(t.text) + (t.owner ? '<span class="hint">・' + esc(t.owner) + '</span>' : '') + (t.due ? '<span class="hint">・' + esc(J().fmtD(t.due)) + '</span>' : '') + '</li>').join('') + '</ul>';
     // Slack
     const chans = slackOptions(m);
     h += '<div class="jx-actions"><button class="btn sm" data-jx="copy" data-id="' + esc(m.id) + '">📋 複製會議紀錄</button>' +
@@ -499,7 +501,7 @@
   }
   function todoView(m, todos, own) {
     if (!m.summary) return '<div class="empty">重點整理好之後，會議中提到的下一步行動會列在這裡。</div>';
-    if (!todos.length) return '<div class="empty">這場會議沒有需要追蹤的下一步行動。</div>';
+    if (!todos.length) return '<div class="empty">' + (m.type === 'lecture' ? '這堂課沒有整理出可應用的行動或作業。' : '這場會議沒有需要追蹤的下一步行動。') + '</div>';
     const my = me(); const st = m.todoState || {};
     const projs = Object.values(S().projects).filter((p) => p.status !== 'archived' && J().visibleProjectIds().has(p.id));
     let h = '<div class="jx-tdhead"><span class="hint">加到專案任務時放進：</span><select id="jx-tdproj" aria-label="加到哪個專案"><option value="">選擇專案…</option>' + projs.map((p) => '<option value="' + esc(p.id) + '" ' + (p.id === M.tdProj ? 'selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select></div>';
@@ -546,7 +548,7 @@
     const sm = m.summary || { sections: [], todos: [] };
     const L = ['📝 ' + (m.title || '會議') + '（' + J().fmtD(m.date || '') + '・' + typeLabel(m.type) + '）', ''];
     secs(sm).forEach((sec) => { if (sec.items.length) { L.push('*' + sec.h + '*'); sec.items.forEach((x) => L.push('• ' + x)); L.push(''); } });
-    if (sm.todos.length) { L.push('*下一步行動*'); sm.todos.forEach((t, i) => { const s = (m.todoState || {})[i] || {}; const o = s.owner ? (S().members[s.owner] || {}).name : t.owner; const d = s.due !== undefined ? s.due : t.due; L.push('☐ ' + t.text + (o ? '（' + o + '）' : '') + (d ? '・' + J().fmtD(d) : '')); }); L.push(''); }
+    if (sm.todos.length) { L.push('*' + todoLabel(m) + '*'); sm.todos.forEach((t, i) => { const s = (m.todoState || {})[i] || {}; const o = s.owner ? (S().members[s.owner] || {}).name : t.owner; const d = s.due !== undefined ? s.due : t.due; L.push('☐ ' + t.text + (o ? '（' + o + '）' : '') + (d ? '・' + J().fmtD(d) : '')); }); L.push(''); }
     return L.join('\n').trim();
   }
   async function copy(t) {
