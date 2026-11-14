@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-14b">
+<meta name="app-ver" content="2026-11-14c">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -2115,7 +2115,7 @@ document.addEventListener('submit',async e=>{
 });
 {const sh=document.getElementById('bsheet'),bm=document.getElementById('bmore');const close=()=>{sh.classList.remove('open');bm.setAttribute('aria-expanded','false')};bm.addEventListener('click',()=>{const o=!sh.classList.contains('open');sh.classList.toggle('open',o);bm.setAttribute('aria-expanded',String(o))});sh.addEventListener('click',e=>{if(e.target.closest('a,[data-close-sheet]'))close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()})}
 // 有新版本時提示更新（避免瀏覽器或 App 一直用舊版）
-async function checkVer(){try{const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});const t=await r.text();const m=t.match(/name="app-ver" content="([^"]+)"/);const cur=document.querySelector('meta[name=app-ver]')?.content;if(m&&cur&&m[1]!==cur&&!document.getElementById('verBar')){const d=document.createElement('div');d.id='verBar';d.className='verbar';d.innerHTML='工作台有新版本 <button class="btn primary sm" type="button">更新</button>';d.querySelector('button').onclick=()=>location.reload();document.body.appendChild(d)}}catch(_){}}
+async function checkVer(){try{const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});const t=await r.text();const m=t.match(/name="app-ver" content="([^"]+)"/);const cur=document.querySelector('meta[name=app-ver]')?.content;if(m&&cur&&m[1]!==cur&&!document.getElementById('verBar')&&!document.body.classList.contains('jx-on')){const d=document.createElement('div');d.id='verBar';d.className='verbar';d.innerHTML='工作台有新版本 <button class="btn primary sm" type="button">更新</button>';d.querySelector('button').onclick=()=>{if(document.body.classList.contains('jx-on')){toast('錄音中先不要更新，結束錄音後再按');return}location.reload()};document.body.appendChild(d)}}catch(_){}}
 setTimeout(checkVer,8000);setInterval(checkVer,15*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVer()});
 window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(v&&v!==S.view){if(S.view==='daily')saveDaily();S.view=v;if(v!=='depts')S.projectId=null;render();scrollTo(0,0)}});
 

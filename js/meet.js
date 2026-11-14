@@ -521,7 +521,7 @@
     // 進度
     if (live) h += '<div class="jx-prog"><span class="jx-dot"></span> 錄音中，每 5 分鐘會先轉一段逐字稿（已完成 ' + doneN + ' 段）</div>';
     else if (m.status === 'recording' && !live && !stale(m)) h += '<div class="jx-prog"><span class="jx-dot"></span> ' + esc((S().members[m.owner] || {}).name || '') + ' 正在另一個裝置錄音（已上傳 ' + (m.parts || []).length + ' 段）</div>';
-    else if (m.status === 'recording' && !live) h += '<div class="jx-prog warn">這場錄音沒有正常結束（可能關掉了頁面）。已上傳 ' + (m.parts || []).length + ' 段。' + (own ? ' <button class="btn sm" data-jx="finish" data-id="' + esc(m.id) + '">用已上傳的部分整理</button>' : '') + '</div>';
+    else if (m.status === 'recording' && !live) h += '<div class="jx-prog warn">這場錄音沒有正常結束（可能關掉了頁面）。已上傳 ' + (m.parts || []).length + ' 段。' + (own ? ' <button class="btn sm primary" data-jx="recMore" data-id="' + esc(m.id) + '">⏺ 接著錄</button> <button class="btn sm" data-jx="finish" data-id="' + esc(m.id) + '">用已上傳的部分整理</button>' : '') + '</div>';
     else if (m.status !== 'done' || busy) {
       const pct = exp.length ? Math.round(doneN / exp.length * 100) : 0;
       h += '<div class="jx-prog"><div style="flex:1"><div>' + (m.status === 'uploading' ? '上傳音檔中…' : m.status === 'summarizing' || (doneN === exp.length && exp.length) ? '整理重點中…' : '轉逐字稿中… ' + doneN + ' / ' + exp.length + ' 段') + '</div><div class="bar"><span style="width:' + pct + '%"></span></div></div>' +
