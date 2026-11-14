@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="app-ver" content="2026-11-14i">
+<meta name="app-ver" content="2026-11-14j">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>職掘工作台</title>
@@ -752,6 +752,7 @@ body.jx-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 
 .who .out{border:0;background:transparent;color:var(--ink-3);font-size:12px;padding:4px 6px;border-radius:6px}
 .who .out:hover{background:var(--surface-2);color:var(--ink)}
+input.jump-date[type=date]{width:auto;flex:0 0 auto;min-width:0;padding:6px 8px;font:inherit;font-size:13px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1343,6 +1344,7 @@ function wkCols(){if(S.wkCols===undefined){let v=null,o=null;try{v=localStorage.
 function wkNoDate(){if(S.wkNoDate===undefined){let v=null;try{v=localStorage.getItem('jj-wknodate')}catch(_){}S.wkNoDate=v!=='0'}return S.wkNoDate}
 function wkStart(){if(S.wkStart===undefined){let v=null;try{v=localStorage.getItem('jj-wkstart')}catch(_){}S.wkStart=v==='1'?1:0}return S.wkStart}
 const WK_LAYOUTS=[[1,'1 欄 × 8 列（直式）'],[2,'2 欄 × 4 列'],[4,'4 欄 × 2 列（週計畫）'],[8,'8 欄 × 1 列（橫式）']];
+function jumpDate(act,v){return '<input type="date" class="jump-date" data-act="'+act+'" value="'+esc(v)+'" title="跳到某一天所在的那一週" aria-label="跳到日期">'}
 function viewMine(){
   const m=me();
   if(!m)return '<div class="page-head"><h1>我的任務</h1></div><div class="panel">'+empty('先在上方選擇你是哪一位，這裡就會列出你的待辦與任務。')+'</div>';
@@ -1355,7 +1357,7 @@ function viewMine(){
     return h+g.map(([nm,l])=>panel('專案任務・'+nm,l.length+' 項',l.length?l.sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')).map(t=>taskRow(t,{noOwner:t.owner===who.id})).join(''):empty('沒有。'))).join('')+'</div>'}
   // week calendar (Sunday start)
   const base=S.mineWeek||S.date0;const d0=parseD(base);const ws=wkStart();const sun=addDays(base,-((d0.getDay()-ws+7)%7));const days=[...Array(7)].map((_,i)=>addDays(sun,i));
-  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button><b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b>'+(self&&window.JX?JX.weekToolbar():'')+'<span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<label class="inline" style="margin-left:10px;white-space:nowrap" title="隱藏後，沒有日期的待辦和專案任務可以在「清單」分頁看到"><input type="checkbox" data-act="wkNoDate" '+(wkNoDate()?'checked':'')+'> 無日期欄</label>'+'<label style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">週起始</span><select data-act="wkStart" style="width:auto" aria-label="一週從哪天開始"><option value="0" '+(wkStart()===0?'selected':'')+'>週日</option><option value="1" '+(wkStart()===1?'selected':'')+'>週一</option></select></label>'+'<label class="wk-mode" style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">版面</span><select data-act="wkCols" style="width:auto" aria-label="版面欄列數">'+WK_LAYOUTS.map(([v,l])=>'<option value="'+v+'" '+(wkCols()===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
+  h+='<div class="toolbar" style="margin-bottom:10px"><button class="btn" data-act="wkPrev" aria-label="上一週">‹</button><button class="btn" data-act="wkToday">今天</button><button class="btn" data-act="wkNext" aria-label="下一週">›</button>'+jumpDate('wkJump',base)+'<b style="margin-left:6px">'+days[0].slice(0,4)+' 年 '+Number(days[0].slice(5,7))+' 月</b>'+(self&&window.JX?JX.weekToolbar():'')+'<span class="hint mine-hint" style="margin-left:auto">🏢 公司行事曆・📅 我的行事曆・藍色邊框是專案任務・拖曳待辦可以換日期</span>'+'<label class="inline" style="margin-left:10px;white-space:nowrap" title="隱藏後，沒有日期的待辦和專案任務可以在「清單」分頁看到"><input type="checkbox" data-act="wkNoDate" '+(wkNoDate()?'checked':'')+'> 無日期欄</label>'+'<label style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">週起始</span><select data-act="wkStart" style="width:auto" aria-label="一週從哪天開始"><option value="0" '+(wkStart()===0?'selected':'')+'>週日</option><option value="1" '+(wkStart()===1?'selected':'')+'>週一</option></select></label>'+'<label class="wk-mode" style="margin-left:10px;display:flex;gap:6px;align-items:center;white-space:nowrap"><span class="sub">版面</span><select data-act="wkCols" style="width:auto" aria-label="版面欄列數">'+WK_LAYOUTS.map(([v,l])=>'<option value="'+v+'" '+(wkCols()===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
   loadMemberCals(ws===1?sun:addDays(sun,1));loadCompanyRange(sun,addDays(sun,6));
   const gOn=self&&window.JX&&JX.gcOn();if(gOn)JX.loadWeek(sun,addDays(sun,6));
   const myT=liveTasks().filter(t=>mine(t,who.id));const projT=myT.filter(t=>t.due&&(isOpen(t)||t.due>=sun));
@@ -1474,7 +1476,7 @@ function teamDmStats(ms,days,wd){
 function dmLegend(){return '<div class="legend"><span><span class="sw" style="background:var(--c-todo)"></span>1 小時以內的事</span><span><span class="sw" style="background:var(--c-proj);width:20px"></span>超過 1 小時的事</span><span>實心＝已完成，虛線框＝沒完成</span><span>滑鼠移到小方塊上可以看內容</span><span>時數條以每週 30 小時（每天 3 件 × 2 小時）為滿格</span></div>'}
 function viewTeam(){
   const ms=teamMembers();const tab=S.ttab||'todos';const base=S.teamWeek||S.date0;const days=weekDays(base);const wd=['一','二','三','四','五','六','日'];
-  let h='<div class="page-head"><div><div class="eyebrow">'+(isAdmin()?'全體夥伴':ms.length>1?'你負責的部門':'只有你自己')+'</div><h1>團隊</h1></div><div class="toolbar"><button class="btn" data-act="twPrev" aria-label="上一週">‹</button><button class="btn" data-act="twToday">本週</button><button class="btn" data-act="twNext" aria-label="下一週">›</button><b>'+fmtD(days[0]).split(' ')[0]+' – '+fmtD(days[6]).split(' ')[0]+'</b></div></div>';
+  let h='<div class="page-head"><div><div class="eyebrow">'+(isAdmin()?'全體夥伴':ms.length>1?'你負責的部門':'只有你自己')+'</div><h1>團隊</h1></div><div class="toolbar"><button class="btn" data-act="twPrev" aria-label="上一週">‹</button><button class="btn" data-act="twToday">本週</button><button class="btn" data-act="twNext" aria-label="下一週">›</button>'+jumpDate('twJump',base)+'<b>'+fmtD(days[0]).split(' ')[0]+' – '+fmtD(days[6]).split(' ')[0]+'</b></div></div>';
   subWeek(days);loadMemberCals(days[0]);
   h+='<div class="tabs2">'+[['todos','每日待辦'],['hours','每週工時'],['dm','三件事統計']].map(([k,l])=>'<button data-act="ttab" data-v="'+k+'" aria-pressed="'+(tab===k)+'">'+l+'</button>').join('')+'</div>';
   if(!ms.length)return h+'<div class="panel">'+empty('先在上方選擇你是哪一位。')+'</div>';
@@ -2044,6 +2046,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.act==='giftWho'){const c=S.gifts.config;if(!c||c.drawn)return;const set=new Set(c.participants||[]);el.checked?set.add(el.dataset.id):set.delete(el.dataset.id);W(S.db.doc('gifts/config').update({participants:[...set]}),'名單已更新');return}
   if(el.dataset.act==='lvPart'){const t=el.closest('form').querySelector('.lv-time');if(t)t.hidden=el.value!=='time';return}
   if(el.dataset.act==='wkNoDate'){S.wkNoDate=el.checked;try{localStorage.setItem('jj-wknodate',el.checked?'1':'0')}catch(_){}render();return}
+  if(el.dataset.act==='wkJump'||el.dataset.act==='twJump'){const v=el.value;if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return;if(el.dataset.act==='wkJump')S.mineWeek=v;else S.teamWeek=v;render();return}
   if(el.dataset.act==='wkStart'){S.wkStart=Number(el.value);try{localStorage.setItem('jj-wkstart',el.value)}catch(_){}render();return}
   if(el.dataset.act==='wkCols'){S.wkCols=Number(el.value);try{localStorage.setItem('jj-wkcols',el.value)}catch(_){}render();return}
   if(el.dataset.act==='setWp'){const t=S.tasks[el.dataset.id];if(!t)return;const wp=el.value;const code=wp?wp+'.'+(projTasks(t.projectId).filter(x=>!x.phase&&wpOf(x)===wp&&x.id!==t.id).length+1):'';W(S.db.doc('tasks/'+t.id).update({code,updatedAt:nowISO()}));return}
