@@ -55,7 +55,7 @@
     if (!h) { h = document.createElement('div'); h.id = 'jxModal'; document.body.appendChild(h); }
     return h;
   }
-  function closeModal() { G.modal = null; M.startOpts = null; host().innerHTML = ''; }
+  function closeModal() { stopTest(); G.modal = null; M.startOpts = null; host().innerHTML = ''; }
   function modal(title, body, foot) {
     host().innerHTML = '<div class="scrim" data-jx="close"></div><div class="modal jx-m" role="dialog" aria-label="' + esc(title) + '"><div style="display:flex;align-items:center;gap:8px"><h2 style="margin:0;flex:1">' + esc(title) + '</h2><button class="btn ghost" data-jx="close" aria-label="關閉">✕</button></div>' + body + (foot ? '<div class="toolbar" style="justify-content:flex-end;margin-top:4px">' + foot + '</div>' : '') + '</div>';
   }
@@ -164,7 +164,38 @@
   }
   const extOf = (mime) => /mp4|m4a|aac/.test(mime) ? 'm4a' : /ogg/.test(mime) ? 'ogg' : /mpeg|mp3/.test(mime) ? 'mp3' : /wav/.test(mime) ? 'wav' : 'webm';
 
+  const micId = () => { try { return localStorage.getItem('jj-mic') || ''; } catch (_) { return ''; } };
+  const micCons = () => ({ echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(micId() ? { deviceId: { ideal: micId() } } : {}) });
+  // 開始前的麥克風測試：選輸入裝置、看音量條
+  const T = { st: null, ctx: null, raf: 0 };
+  function stopTest() { cancelAnimationFrame(T.raf); if (T.st) T.st.getTracks().forEach((t) => t.stop()); try { T.ctx && T.ctx.close(); } catch (_) {} T.st = T.ctx = null; }
+  async function startTest() {
+    stopTest();
+    const box = document.getElementById('jx-mict'); if (!box) return;
+    try {
+      T.st = await navigator.mediaDevices.getUserMedia({ audio: micCons() });
+      const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+      const cur = (T.st.getAudioTracks()[0].getSettings() || {}).deviceId || micId();
+      const sel = document.getElementById('jx-micsel');
+      if (sel) sel.innerHTML = devs.map((d, i) => '<option value="' + esc(d.deviceId) + '" ' + (d.deviceId === cur ? 'selected' : '') + '>' + esc(d.label || '麥克風 ' + (i + 1)) + '</option>').join('');
+      const AC = window.AudioContext || window.webkitAudioContext; T.ctx = new AC(); try { await T.ctx.resume(); } catch (_) {}
+      const an = T.ctx.createAnalyser(); an.fftSize = 512; T.ctx.createMediaStreamSource(T.st).connect(an);
+      const a = new Uint8Array(an.fftSize); let peakAt = 0;
+      const loop = () => {
+        const bar = document.getElementById('jx-micbar'), tip = document.getElementById('jx-mictip');
+        if (!bar) { stopTest(); return; }
+        an.getByteTimeDomainData(a); let p = 0; for (const v of a) p = Math.max(p, Math.abs(v - 128));
+        bar.style.width = Math.min(100, Math.round(p / 128 * 200)) + '%';
+        if (p > 6) peakAt = Date.now();
+        if (tip) tip.textContent = peakAt && Date.now() - peakAt < 1500 ? '✅ 有收到聲音' : '說說話試試看：綠色條要跟著跳動';
+        T.raf = requestAnimationFrame(loop);
+      };
+      loop();
+    } catch (e) { box.innerHTML = '<span class="hint">⚠️ 無法使用麥克風：請在網址列旁允許麥克風權限</span>'; }
+  }
+
   async function startRec(o) {
+    stopTest();
     if (M.rec) { toast('已經在錄音了'); return; }
     const m = me(); if (!m) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { toast('這個瀏覽器不支援錄音，請改用 Chrome 或 Safari'); return; }
@@ -175,7 +206,7 @@
         disp = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { suppressLocalAudioPlayback: false }, systemAudio: 'include', selfBrowserSurface: 'exclude' });
         if (!disp.getAudioTracks().length) { disp.getTracks().forEach((t) => t.stop()); toast('沒有分享到聲音：請選「Chrome 分頁」並勾選「同時分享分頁音訊」'); return; }
       }
-      mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      mic = await navigator.mediaDevices.getUserMedia({ audio: micCons() });
     } catch (e) {
       if (disp) disp.getTracks().forEach((t) => t.stop());
       toast(e && e.name === 'NotAllowedError' ? '沒有取得麥克風權限：請在瀏覽器網址列旁允許使用麥克風' : '無法開始錄音：' + ((e && e.message) || ''));
@@ -183,6 +214,7 @@
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     const ctx = new AC();
+    try { await ctx.resume(); } catch (_) {}
     const dest = ctx.createMediaStreamDestination();
     const an = ctx.createAnalyser(); an.fftSize = 512;
     const addSrc = (st) => { const s = ctx.createMediaStreamSource(st); s.connect(dest); s.connect(an); };
@@ -194,12 +226,13 @@
       owner: m.id, title: title || '會議 ' + J().fmtD(localDate()).split(' ')[0] + ' ' + hm(), autoTitle: !title,
       date: localDate(), startedAt: nowISO(), createdAt: nowISO(), status: 'recording', source: o.source || 'mic',
       parts: [], dur: 0, shared: [], people: [...new Set([m.name, ...people])], eventId: o.eventId || '', eventCal: o.eventCal || '', vocab: '', type: o.type || 'general',
+      manual: !!o.manual,
     };
     let ref; let base = [];
     try {
       if (into) {
         base = normParts(into);
-        const patch = { status: 'recording', parts: base, dur: sumDur(base), file: false, resumedAt: nowISO() };
+        const patch = { status: 'recording', parts: base, dur: sumDur(base), file: false, resumedAt: nowISO(), manual: !!o.manual };
         await S().db.doc('meetings/' + into.id).update(patch);
         ref = { id: into.id }; Object.assign(into, patch);
       } else { ref = await S().db.collection('meetings').add(data); M.list[ref.id] = { id: ref.id, ...data }; }
@@ -210,7 +243,7 @@
     // 只有麥克風時直接錄麥克風音軌；AudioContext 只用來畫音量條。
     // （背景分頁時瀏覽器可能暫停 AudioContext，經過它錄音會錄到空檔。）
     const recStream = disp ? dest.stream : new MediaStream(mic.getAudioTracks());
-    const R = M.rec = { id: ref.id, resume: !!into, mime, ctx, an, dest, mic, disp, stream: recStream, n: nextN(base), off: sumDur(base), segAt: Date.now(), segPaused: 0, pausedAt: 0, paused: false, parts: base.slice(), q: Promise.resolve(), pending: 0, failed: [], start: Date.now(), tick: null, mr: null };
+    const R = M.rec = { id: ref.id, resume: !!into, manual: !!o.manual, mime, ctx, an, dest, mic, disp, stream: recStream, n: nextN(base), off: sumDur(base), segAt: Date.now(), segPaused: 0, pausedAt: 0, paused: false, parts: base.slice(), q: Promise.resolve(), pending: 0, failed: [], start: Date.now(), tick: null, mr: null };
     if (disp) disp.getVideoTracks().forEach((t) => { t.onended = () => { if (M.rec === R) toast('螢幕分享已停止，之後只錄得到麥克風'); }; });
     mic.getAudioTracks().forEach((t) => { t.onended = () => { if (M.rec === R) { toast('麥克風中斷了，已自動結束錄音'); stopRec(); } }; });
     newRecorder(R);
@@ -228,13 +261,14 @@
     try { mr = new MediaRecorder(R.stream, R.mime ? { mimeType: R.mime, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 }); }
     catch (_) { mr = new MediaRecorder(R.stream); }
     const chunks = []; const n = R.n; const off = R.off;
-    mr._bytes = 0; mr._t0 = Date.now();
+    mr._bytes = 0; mr._t0 = Date.now(); mr._ticks = 0; mr._act = 0;
     mr.ondataavailable = (e) => { if (e.data && e.data.size) { chunks.push(e.data); mr._bytes += e.data.size; } };
     mr.onstop = () => {
       const dur = Math.max(1, Math.round(mr._dur || segElapsed(R)));
       const blob = new Blob(chunks, { type: (mr.mimeType || R.mime || 'audio/webm').split(';')[0] });
       if (dur > 20 && blob.size < 2000 && !mr._flag) emptySeg(R, n, dur);
-      if (blob.size > 0) enqueue(R, n, blob, off, dur);
+      const act = mr._ticks >= 20 ? Math.round(mr._act / mr._ticks * 1000) / 1000 : null;
+      if (blob.size > 0) enqueue(R, n, blob, off, dur, act);
       else if (R.finishing) maybeFinish(R);
     };
     mr.start(1000);
@@ -249,7 +283,7 @@
     try {
       try { await R.ctx.resume(); } catch (_) {}
       {
-        const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        const mic = await navigator.mediaDevices.getUserMedia({ audio: micCons() });
         const old = R.mic; R.mic = mic;
         try { const src = R.ctx.createMediaStreamSource(mic); src.connect(R.an); if (R.disp) src.connect(R.dest); } catch (_) {}
         if (!R.disp) R.stream = new MediaStream(mic.getAudioTracks());
@@ -279,13 +313,14 @@
     if (R.an && !R.paused && !document.hidden && R.ctx && R.ctx.state === 'running') {
       const a = new Uint8Array(R.an.fftSize); R.an.getByteTimeDomainData(a); let p = 0; for (const v of a) p = Math.max(p, Math.abs(v - 128));
       if (lv) lv.style.width = Math.min(100, Math.round(p / 128 * 180)) + '%';
+      if (R.mr) { R.mr._ticks++; if (p > 6) R.mr._act++; }
       // 連續 20 秒幾乎沒有聲音 → 提醒（麥克風被靜音、選錯輸入裝置、離說話的人太遠）
       if (p > 3) { R.quietAt = 0; if (R.quiet) { R.quiet = false; drawBar(); } }
       else { R.quietAt = R.quietAt || Date.now(); if (!R.quiet && Date.now() - R.quietAt > 20000) { R.quiet = true; drawBar(); toast('🔇 麥克風沒有收到聲音：請檢查麥克風是否靜音，或靠近說話的人'); } }
     }
   }
   function totalElapsed(R) { return R.off + (R.mr ? segElapsed(R) : 0); }
-  function enqueue(R, n, blob, off, dur) {
+  function enqueue(R, n, blob, off, dur, act) {
     R.pending++;
     R.q = R.q.then(async () => {
       const path = R.id + '/' + String(n).padStart(3, '0') + '.' + extOf(blob.type);
@@ -294,17 +329,17 @@
         const { error } = await S().sb.storage.from('meetings').upload(path, blob, { contentType: blob.type, upsert: true });
         if (!error) ok = true; else { console.warn('upload', error); await new Promise((r) => setTimeout(r, 2000 * (i + 1))); }
       }
-      if (!ok) { R.failed.push({ n, blob, off, dur }); toast('第 ' + (n + 1) + ' 段音檔上傳失敗，網路恢復後會再試'); return; }
-      R.parts.push({ n, path, mime: blob.type, dur, off: Math.round(off), at: nowISO() });
+      if (!ok) { R.failed.push({ n, blob, off, dur, act }); toast('第 ' + (n + 1) + ' 段音檔上傳失敗，網路恢復後會再試'); return; }
+      R.parts.push({ n, path, mime: blob.type, dur, off: Math.round(off), at: nowISO(), ...(act != null ? { act } : {}) });
       R.parts.sort((a, b) => a.n - b.n);
       const total = R.parts.reduce((s, p) => s + p.dur, 0);
       await S().db.doc('meetings/' + R.id).update({ parts: R.parts, dur: Math.round(total) }).catch((e) => console.warn(e));
       if (M.list[R.id]) { M.list[R.id].parts = R.parts.slice(); M.list[R.id].dur = Math.round(total); }
-      await transcribe(R.id, n);
+      if (!R.manual) await transcribe(R.id, n);
     }).catch((e) => console.warn(e)).finally(() => { R.pending--; maybeFinish(R); drawBar(); });
   }
   function retryFailed(R) {
-    const f = R.failed.splice(0); f.forEach((x) => enqueue(R, x.n, x.blob, x.off, x.dur));
+    const f = R.failed.splice(0); f.forEach((x) => enqueue(R, x.n, x.blob, x.off, x.dur, x.act));
   }
   window.addEventListener('online', () => { if (M.rec && M.rec.failed.length) retryFailed(M.rec); if (M.done && M.done.failed.length) retryFailed(M.done); });
   function pauseRec() {
@@ -323,19 +358,20 @@
     try { R.ctx.close(); } catch (_) {}
     wake(false);
     M.rec = null; M.done = R;
-    S().db.doc('meetings/' + R.id).update({ status: 'processing', endedAt: nowISO() }).catch(() => {});
-    if (M.list[R.id]) M.list[R.id].status = 'processing';
+    const st = R.manual ? 'recorded' : 'processing';
+    S().db.doc('meetings/' + R.id).update({ status: st, endedAt: nowISO() }).catch(() => {});
+    if (M.list[R.id]) M.list[R.id].status = st;
     drawBar();
     M.sel = R.id; M.tab = 'sum';
     location.hash = 'meet'; J().S.view = 'meet'; J().render();
-    toast('錄音結束，正在整理逐字稿和重點…');
+    toast(R.manual ? '錄音已存好，需要時按「開始轉逐字稿」' : '錄音結束，正在整理逐字稿和重點…');
   }
   function maybeFinish(R) {
     if (!R.finishing || R.pending > 0 || R.mr || R.failed.length || R.summarized) return;
     R.summarized = true;
     if (M.done === R) M.done = null;
     drawBar();
-    process(R.id, { notify: true, resum: !!R.resume });
+    if (!R.manual) process(R.id, { notify: true, resum: !!R.resume }); else J().render();
   }
   let wl = null;
   async function wake(on) {
@@ -436,10 +472,11 @@
       Object.assign(mt, { parts, dur: sumDur(parts) });
       added++;
     }
-    const status = added ? 'processing' : (st0 && st0 !== 'uploading' ? st0 : 'error');
+    const status = added ? (mt.manual ? 'recorded' : 'processing') : (st0 && st0 !== 'uploading' ? st0 : 'error');
     await S().db.doc('meetings/' + id).update({ status }).catch(() => {});
     mt.status = status; J().render();
     if (!added) return;
+    if (mt.manual) { toast('音檔已加入，需要時按「開始轉逐字稿」'); return; }
     const d = parts.filter((p) => p.up).slice(-added).reduce((x, p) => x + (p.dur || 0), 0);
     toast('上傳完成，開始轉逐字稿' + (d > 900 ? '（約需 ' + Math.ceil(d / 600) + ' 分鐘）' : ''));
     process(id, { notify: true, resum: true });
@@ -458,14 +495,17 @@
     const ty = M.startOpts.type || guessType(M.startOpts);
     if (!into) b += '<div class="field"><span>會議類型（決定結束後怎麼整理）</span><div class="jx-types">' + TYPES.map(([k, l, d]) => '<label><input type="radio" name="jx-type" value="' + k + '" ' + (k === ty ? 'checked' : '') + '><b>' + l + '</b><span class="hint">' + d + '</span></label>').join('') + '</div></div>';
     if (!into && M.startOpts.people && M.startOpts.people.length) b += '<div class="hint">與會者：' + esc(M.startOpts.people.join('、')) + '</div>';
+    let man = true; try { man = localStorage.getItem('jj-manual') !== '0'; } catch (_) {}
+    b += '<div class="field" id="jx-mict"><span>麥克風測試</span><select id="jx-micsel" aria-label="選擇麥克風"><option>讀取中…</option></select><div class="jx-micm"><span class="jx-lv big"><i id="jx-micbar"></i></span><span class="hint" id="jx-mictip">說說話試試看：綠色條要跟著跳動</span></div></div>';
+    b += '<label class="inline jx-man"><input type="checkbox" id="jx-manual" ' + (man ? 'checked' : '') + '> 錄完先存起來，我按「開始轉逐字稿」才整理</label>';
     b += '<div class="jx-note">📣 開始前請告知與會者會議正在錄音。' + (isMob() ? '<br>📱 錄音時請保持螢幕亮著、不要切換 App，否則手機可能會暫停錄音。' : '<br>Zoom、Teams 等電腦 App 的聲音瀏覽器抓不到：請開喇叭，用「實體會議」收音。') + '</div>';
     if (M.ready === false) b += '<div class="jx-note warn">⚠️ 還沒設定轉錄用的 Gemini 金鑰：可以先錄音，設定好之後再到「會議記錄」按「繼續整理」。</div>';
     modal(into ? '繼續錄音' : '開始錄音', b, '<label class="btn ghost" style="margin-right:auto">⬆ 上傳音檔<input type="file" id="jx-file" accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac" multiple hidden></label><button class="btn" data-jx="close">取消</button><button class="btn primary jx-recbtn" data-jx="go">⏺ ' + (into ? '繼續錄音' : '開始錄音') + '</button>');
-    setTimeout(() => { const t = document.getElementById('jx-title'); if (t && !isMob()) t.focus(); }, 30);
+    setTimeout(() => { const t = document.getElementById('jx-title'); if (t && !isMob()) t.focus(); startTest(); }, 30);
   }
 
   // ---- 會議記錄頁 ----
-  const STATUS = { recording: ['錄音中', 'rec'], uploading: ['上傳中', 'work'], processing: ['轉逐字稿中', 'work'], summarizing: ['整理重點中', 'work'], done: ['完成', 'ok'], error: ['錯誤', 'err'] };
+  const STATUS = { recording: ['錄音中', 'rec'], uploading: ['上傳中', 'work'], processing: ['轉逐字稿中', 'work'], summarizing: ['整理重點中', 'work'], done: ['完成', 'ok'], error: ['錯誤', 'err'] , recorded: ['待轉譯', 'work']};
   function statusPill(m) {
     let st = m.status || 'processing';
     if (st === 'recording' && !(M.rec && M.rec.id === m.id) && stale(m)) st = 'stuck';
@@ -529,6 +569,7 @@
     if (live) h += '<div class="jx-prog"><span class="jx-dot"></span> 錄音中，每 5 分鐘會先轉一段逐字稿（已完成 ' + doneN + ' 段）</div>';
     else if (m.status === 'recording' && !live && !stale(m)) h += '<div class="jx-prog"><span class="jx-dot"></span> ' + esc((S().members[m.owner] || {}).name || '') + ' 正在另一個裝置錄音（已上傳 ' + (m.parts || []).length + ' 段）' + (own ? '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><span class="hint">其實已經停了？</span><button class="btn sm primary" data-jx="recMore" data-id="' + esc(m.id) + '">⏺ 接著錄</button><label class="btn sm">⬆ 加入音檔<input type="file" id="jx-fileAdd" data-id="' + esc(m.id) + '" accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac" multiple hidden></label></span>' : '') + '</div>';
     else if (m.status === 'recording' && !live) h += '<div class="jx-prog warn">這場錄音沒有正常結束（可能關掉了頁面）。已上傳 ' + (m.parts || []).length + ' 段。' + (own ? ' <button class="btn sm primary" data-jx="recMore" data-id="' + esc(m.id) + '">⏺ 接著錄</button> <label class="btn sm">⬆ 加入音檔<input type="file" id="jx-fileAdd" data-id="' + esc(m.id) + '" accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac" multiple hidden></label> <button class="btn sm" data-jx="finish" data-id="' + esc(m.id) + '">用已上傳的部分整理</button>' : '') + '</div>';
+    else if (m.status === 'recorded' && !busy) h += '<div class="jx-prog"><div style="flex:1">🎙 錄音已存好（' + durTxt(m.dur || 0) + '）。' + (own ? '確認錄完了，再按右邊的按鈕。' : '等 ' + esc((S().members[m.owner] || {}).name || '') + ' 開始轉譯。') + '</div>' + (own ? '<button class="btn sm primary" data-jx="transcribe" data-id="' + esc(m.id) + '">開始轉逐字稿與整理重點</button>' : '') + '</div>';
     else if (m.status !== 'done' || busy) {
       const pct = exp.length ? Math.round(doneN / exp.length * 100) : 0;
       h += '<div class="jx-prog"><div style="flex:1"><div>' + (m.status === 'uploading' ? '上傳音檔中…' : m.status === 'summarizing' || (doneN === exp.length && exp.length) ? '整理重點中…' : '轉逐字稿中… ' + doneN + ' / ' + exp.length + ' 段') + '</div><div class="bar"><span style="width:' + pct + '%"></span></div></div>' +
@@ -878,10 +919,12 @@
         const src = (document.querySelector('input[name="jx-src"]:checked') || {}).value || 'mic';
         const type = (document.querySelector('input[name="jx-type"]:checked') || {}).value || ((M.startOpts || {}).into ? (M.list[M.startOpts.into] || {}).type : '') || 'general';
         a.disabled = true;
-        await startRec({ ...(M.startOpts || {}), title: t, source: src, type });
+        const manual = !!(document.getElementById('jx-manual') || {}).checked; try { localStorage.setItem('jj-manual', manual ? '1' : '0'); } catch (_) {}
+        await startRec({ ...(M.startOpts || {}), title: t, source: src, type, manual });
         a.disabled = false; break;
       }
       case 'pause': pauseRec(); break;
+      case 'transcribe': await S().db.doc('meetings/' + id).update({ status: 'processing', manual: false }); Object.assign(M.list[id], { status: 'processing', manual: false }); process(id, { notify: true, resum: true }); toast('開始轉逐字稿，完成後會通知你'); J().render(); break;
       case 'notes': M.notesOpen = !M.notesOpen; drawBar(); if (M.notesOpen) setTimeout(() => document.getElementById('jxNotesTa')?.focus(), 30); break;
       case 'notesT': { const ta = document.getElementById('jxNotesTa'); if (!ta || !M.rec) break; const tag = '[' + mmss(totalElapsed(M.rec)) + '] '; const p = ta.selectionStart ?? ta.value.length; const pre = ta.value.slice(0, p); const ins = (pre && !pre.endsWith('\n') ? '\n' : '') + tag; ta.value = pre + ins + ta.value.slice(p); ta.selectionStart = ta.selectionEnd = p + ins.length; ta.focus(); saveNotes(M.rec.id, ta.value); break; }
       case 'recMore': if (M.rec) { toast('正在錄另一場，請先結束'); break; } openStart({ into: id, source: (M.list[id] || {}).source === 'tab' ? 'tab' : 'mic' }); break;
@@ -941,6 +984,7 @@
       el.value = ''; if (fs.length) uploadFiles(fs, o); return;
     }
     if (el.id === 'jx-tdproj') { M.tdProj = el.value; return; }
+    if (el.id === 'jx-micsel') { try { localStorage.setItem('jj-mic', el.value); } catch (_) {} startTest(); return; }
     if (el.id === 'jx-slack') { M.slackCh = el.value; return; }
     const k = el.dataset && el.dataset.jxf; if (!k) return;
     const id = el.dataset.id; const m = M.list[id];

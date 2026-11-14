@@ -18,7 +18,7 @@ const fail = (code: string, detail?: string) => Object.assign(new Error(detail |
 
 type Line = { t: number; sp: string; text: string };
 // span>1：上傳的長音檔，佔用 n～n+span-1 段，每段 WIN 秒。up：上傳的音檔（不是現場錄音切段）。
-type Part = { n: number; path: string; mime: string; dur?: number; off?: number; span?: number; up?: boolean };
+type Part = { n: number; path: string; mime: string; dur?: number; off?: number; span?: number; up?: boolean; act?: number };
 type MData = {
   owner: string; title?: string; autoTitle?: boolean; date?: string; status?: string;
   file?: boolean; dur?: number; parts?: Part[]; gfile?: { uri: string; mime: string; exp: number; path: string };
@@ -198,6 +198,10 @@ async function doSeg(id: string, m: MData, n: number) {
     if (!p) throw fail('audio_missing');
     const bytes = await download(p.path);
     if (bytes.length < 1024) throw fail('empty_audio', `only ${bytes.length} bytes`);
+    // 靜音防呆：AI 遇到沒有聲音的錄音會自己編內容，所以明顯沒聲音的段落不送去轉錄
+    const d = Number(p.dur) || 0;
+    if (typeof p.act === 'number' && p.act < 0.03) throw fail('empty_audio', `activity ${p.act}`);
+    if (d >= 60 && bytes.length / d < 600) throw fail('empty_audio', `${Math.round(bytes.length / d)} B/s`);
     const mime = geminiMime(p.mime);
     if (bytes.length > 12 * 1024 * 1024) { const up = await gUpload(bytes, mime, id + '-' + n); audio = { fileData: { fileUri: up.uri, mimeType: up.mime } }; }
     else audio = { inlineData: { mimeType: mime, data: encodeBase64(bytes) } };
