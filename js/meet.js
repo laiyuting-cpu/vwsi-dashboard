@@ -276,7 +276,13 @@
     if (mr && !R.paused && !mr._flag && Date.now() - mr._t0 > 20000 && mr._bytes < 1500) { mr._flag = true; emptySeg(R, R.n, segElapsed(R)); }
     const el = document.getElementById('jxRecT'); if (el) el.textContent = mmss(totalElapsed(R));
     const lv = document.getElementById('jxRecL');
-    if (lv && R.an) { const a = new Uint8Array(R.an.fftSize); R.an.getByteTimeDomainData(a); let p = 0; for (const v of a) p = Math.max(p, Math.abs(v - 128)); lv.style.width = Math.min(100, Math.round(p / 128 * 180)) + '%'; }
+    if (R.an && !R.paused && !document.hidden && R.ctx && R.ctx.state === 'running') {
+      const a = new Uint8Array(R.an.fftSize); R.an.getByteTimeDomainData(a); let p = 0; for (const v of a) p = Math.max(p, Math.abs(v - 128));
+      if (lv) lv.style.width = Math.min(100, Math.round(p / 128 * 180)) + '%';
+      // 連續 20 秒幾乎沒有聲音 → 提醒（麥克風被靜音、選錯輸入裝置、離說話的人太遠）
+      if (p > 3) { R.quietAt = 0; if (R.quiet) { R.quiet = false; drawBar(); } }
+      else { R.quietAt = R.quietAt || Date.now(); if (!R.quiet && Date.now() - R.quietAt > 20000) { R.quiet = true; drawBar(); toast('🔇 麥克風沒有收到聲音：請檢查麥克風是否靜音，或靠近說話的人'); } }
+    }
   }
   function totalElapsed(R) { return R.off + (R.mr ? segElapsed(R) : 0); }
   function enqueue(R, n, blob, off, dur) {
@@ -357,7 +363,7 @@
     if (!b) { b = document.createElement('div'); b.id = 'jxBar'; b.className = 'jx-bar'; document.body.appendChild(b); }
     if (R) {
       const t = (M.list[R.id] || {}).title || '會議';
-      b.innerHTML = '<span class="jx-dot' + (R.paused ? ' paused' : '') + '"></span><button class="jx-bt" data-jx="openMeet" data-id="' + esc(R.id) + '" title="' + esc(t) + '"><b id="jxRecT" class="mono">' + mmss(totalElapsed(R)) + '</b><span class="jx-lv"><i id="jxRecL"></i></span><span class="jx-tt">' + esc(R.paused ? '已暫停' : t) + '</span></button>' +
+      b.innerHTML = '<span class="jx-dot' + (R.paused ? ' paused' : '') + '"></span><button class="jx-bt" data-jx="openMeet" data-id="' + esc(R.id) + '" title="' + esc(t) + '"><b id="jxRecT" class="mono">' + mmss(totalElapsed(R)) + '</b><span class="jx-lv"><i id="jxRecL"></i></span><span class="jx-tt">' + (R.quiet && !R.paused ? '🔇 沒有收到聲音' : esc(R.paused ? '已暫停' : t)) + '</span></button>' +
         '<button class="btn sm" data-jx="notes" aria-pressed="' + !!M.notesOpen + '">📝<span class="jx-bl"> 筆記</span></button><button class="btn sm" data-jx="pause">' + (R.paused ? '▶ 繼續' : '⏸ 暫停') + '</button><button class="btn sm jx-stop" data-jx="stop">■ 結束</button>';
     } else {
       b.innerHTML = '<span class="jx-spin"></span><span class="jx-tt">正在上傳最後的錄音…請先不要關閉頁面</span>' + (D.failed.length ? '<button class="btn sm" data-jx="retryUp">重試上傳</button>' : '');
